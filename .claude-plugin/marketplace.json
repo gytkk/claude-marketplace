@@ -26,6 +26,16 @@
       },
       "source": "./lsp/metals-lsp",
       "category": "development"
+    },
+    {
+      "name": "ty-lsp",
+      "description": "Python type checker and language server (ty by Astral) for code intelligence",
+      "version": "1.0.0",
+      "author": {
+        "name": "gytkk"
+      },
+      "source": "./lsp/ty-lsp",
+      "category": "development"
     }
   ]
 }
