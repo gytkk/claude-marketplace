@@ -1,18 +1,31 @@
 {
-  "name": "gytkk",
-  "metadata": {
-    "description": "gytkk's personal marketplace for Claude Code"
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "claude-marketplace",
+  "description": "gytkk's personal marketplace for Claude Code",
+  "owner": {
+    "name": "gytkk",
+    "email": "gytkk@users.noreply.github.com"
   },
   "plugins": [
     {
       "name": "gytkk-agents",
       "description": "Custom agents: code reviewer, software dev engineer, test code writer",
-      "source": "./agents"
+      "version": "1.0.0",
+      "author": {
+        "name": "gytkk"
+      },
+      "source": "./agents",
+      "category": "productivity"
     },
     {
       "name": "metals-lsp",
-      "description": "Scala language server (Metals) for code intelligence",
-      "source": "./lsp/metals-lsp"
+      "description": "Scala language server (Metals) for code intelligence, refactoring, and analysis",
+      "version": "1.0.0",
+      "author": {
+        "name": "gytkk"
+      },
+      "source": "./lsp/metals-lsp",
+      "category": "development"
     }
   ]
 }
