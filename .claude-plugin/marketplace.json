@@ -46,6 +46,16 @@
       },
       "source": "./lsp/terraform-ls",
       "category": "development"
+    },
+    {
+      "name": "nixd-lsp",
+      "description": "Nix language server (nixd) for code intelligence and diagnostics",
+      "version": "1.0.0",
+      "author": {
+        "name": "gytkk"
+      },
+      "source": "./lsp/nixd-lsp",
+      "category": "development"
     }
   ]
 }

@@ -1,0 +1,13 @@
+{
+  "name": "nixd-lsp",
+  "version": "1.0.0",
+  "description": "Nix language server (nixd) for code intelligence and diagnostics",
+  "lspServers": {
+    "nixd": {
+      "command": "nixd",
+      "extensionToLanguage": {
+        ".nix": "nix"
+      }
+    }
+  }
+}
