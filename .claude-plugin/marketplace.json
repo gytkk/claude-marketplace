@@ -1,6 +1,6 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
-  "name": "claude-marketplace",
+  "name": "gytkk",
   "description": "gytkk's personal marketplace for Claude Code",
   "owner": {
     "name": "gytkk",
