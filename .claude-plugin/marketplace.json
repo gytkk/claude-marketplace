@@ -9,7 +9,7 @@
   "plugins": [
     {
       "name": "codex",
-      "description": "Codex CLI integration: autonomous deep worker (Hephaestus) and code critic",
+      "description": "Codex CLI integration: autonomous deep worker (Hephaestus), code critic, and deep analyzer",
       "version": "1.0.0",
       "author": {
         "name": "gytkk"

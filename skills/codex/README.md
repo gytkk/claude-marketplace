@@ -1,6 +1,6 @@
 # Codex Plugin
 
-OpenAI Codex CLI integration for Claude Code. Provides two commands:
+OpenAI Codex CLI integration for Claude Code. Provides three commands:
 
 ## Commands
 
@@ -22,6 +22,15 @@ Autonomous deep worker for complex implementation tasks.
 - Self-verification of changes
 - Session-scoped output files: `~/.ai/hephaestus-{SESSION_ID}-result.json`
 
+### `/codex:analyze`
+
+Deep analysis for code, logs, errors, performance, and arbitrary content.
+
+- Systematic, evidence-based analysis with structured findings
+- Iterative deepening (up to 3 iterations by default)
+- Read-only sandbox (workspace-read) — no file modifications
+- Session-scoped output files: `~/.ai/analyze-{SESSION_ID}-result.json`
+
 ## Prerequisites
 
 - [Codex CLI](https://github.com/openai/codex) installed (`npm install -g @openai/codex`)
@@ -33,12 +42,15 @@ Autonomous deep worker for complex implementation tasks.
 skills/codex/
 ├── .claude-plugin/plugin.json    # Plugin manifest
 ├── commands/
+│   ├── analyze.md                # Analyze command definition
 │   ├── critic.md                 # Critic command definition
 │   └── hephaestus.md             # Hephaestus command definition
 ├── references/
+│   ├── analyze-schema.json       # Output schema for analyze results
 │   ├── critic-schema.json        # Output schema for critic results
 │   └── output-schema.json        # Output schema for hephaestus results
 ├── agents/
+│   ├── codex-analyze-agents.md   # Analyze agent persona
 │   ├── codex-critic-agents.md    # Critic agent persona
 │   └── codex-hephaestus-agents.md # Hephaestus agent persona
 └── README.md
