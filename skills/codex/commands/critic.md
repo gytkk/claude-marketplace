@@ -180,13 +180,22 @@ Output ONLY the JSON object, no markdown fences, no explanation before or after.
 #### 4b. Codex 실행
 
 ```bash
+JSONL_LOG="$HOME/.ai/critic-${SESSION_ID}-events.jsonl"
+touch "$JSONL_LOG"
+tail -f "$JSONL_LOG" | "$HOME/.ai/stream-progress.sh" &
+TAIL_PID=$!
+
 CODEX_HOME="$HOME/.codex-critic" codex exec \
   --json \
   --sandbox "${CRITIC_SANDBOX:-workspace-write}" \
   --output-schema "$HOME/.codex-critic/critic-schema.json" \
   --output-last-message ~/.ai/critic-${SESSION_ID}-iter-1.json \
   - < /tmp/critic-prompt.txt \
-  | "$HOME/.ai/stream-progress.sh"
+  >> "$JSONL_LOG"
+
+sleep 1
+kill $TAIL_PID 2>/dev/null
+wait $TAIL_PID 2>/dev/null
 ```
 
 실패 시 에러를 사용자에게 보고하고 중단한다.
@@ -247,13 +256,22 @@ Output ONLY the JSON object, no markdown fences, no explanation before or after.
 실행 명령 (iteration 번호에 맞게 출력 파일 변경):
 
 ```bash
+JSONL_LOG="$HOME/.ai/critic-${SESSION_ID}-events.jsonl"
+touch "$JSONL_LOG"
+tail -f "$JSONL_LOG" | "$HOME/.ai/stream-progress.sh" &
+TAIL_PID=$!
+
 CODEX_HOME="$HOME/.codex-critic" codex exec \
   --json \
   --sandbox "${CRITIC_SANDBOX:-workspace-write}" \
   --output-schema "$HOME/.codex-critic/critic-schema.json" \
   --output-last-message ~/.ai/critic-${SESSION_ID}-iter-{N}.json \
   - < /tmp/critic-prompt.txt \
-  | "$HOME/.ai/stream-progress.sh"
+  >> "$JSONL_LOG"
+
+sleep 1
+kill $TAIL_PID 2>/dev/null
+wait $TAIL_PID 2>/dev/null
 ```
 
 **에러 폴백**: `codex exec`가 실패하면 이전 iteration의 결과를 최종 결과로 사용한다.
