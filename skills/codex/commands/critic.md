@@ -6,30 +6,16 @@ argument-hint: "<원래 사용자 요청 또는 검증 대상 설명>"
 allowed-tools:
   - Bash
   - Read
-  - Write
-  - WebFetch
-  - WebSearch
+  - Glob
+  - Grep
+  - mcp__codex__codex
+  - mcp__codex__codex-reply
 ---
-
-Set up Codex Critic environment:
-
-```!
-CRITIC_HOME="$HOME/.codex-critic"
-mkdir -p "$CRITIC_HOME" "$HOME/.ai"
-cp "${CLAUDE_PLUGIN_ROOT}/agents/codex-critic-agents.md" "$CRITIC_HOME/AGENTS.md" 2>/dev/null
-cp "${CLAUDE_PLUGIN_ROOT}/references/critic-schema.json" "$CRITIC_HOME/critic-schema.json" 2>/dev/null
-cp "${CLAUDE_PLUGIN_ROOT}/scripts/stream-progress.sh" "$HOME/.ai/stream-progress.sh" 2>/dev/null
-chmod +x "$HOME/.ai/stream-progress.sh" 2>/dev/null
-ln -sf "$HOME/.codex/config.toml" "$CRITIC_HOME/config.toml" 2>/dev/null
-ln -sf "$HOME/.codex/auth.json" "$CRITIC_HOME/auth.json" 2>/dev/null
-echo "Codex Critic home ready: $CRITIC_HOME"
-```
 
 # Codex Critic
 
-OpenAI Codex CLI의 비대화형 모드(`codex exec`)를 사용하여, 코드 변경사항(diff),
-계획, 또는 임의의 콘텐츠가 원래 사용자 요청에 부합하는지 독립적으로 검증하고
-구조화된 피드백을 제공합니다.
+Codex MCP 도구를 사용하여 코드 변경사항(diff), 계획, 또는 임의의 콘텐츠가
+원래 사용자 요청에 부합하는지 독립적으로 검증하고 구조화된 피드백을 제공합니다.
 
 ## Invocation
 
@@ -46,10 +32,10 @@ OpenAI Codex CLI의 비대화형 모드(`codex exec`)를 사용하여, 코드 �
 codex CLI가 설치되어 있는지 Bash로 확인한다. 실패하면 에러 메시지를 사용자에게 전달하고 중단한다.
 
 ```bash
-command -v codex >/dev/null 2>&1 || echo "ERROR: codex CLI not found. Install: npm install -g @openai/codex"
+command -v codex >/dev/null 2>&1 || { echo "ERROR: codex CLI not found. Install: npm install -g @openai/codex"; exit 1; }
 ```
 
-**인증**: `codex login`으로 사전 인증이 필요하다. 인증 실패는 codex exec 실행 시 자체적으로 보고된다.
+**인증**: `codex login`으로 사전 인증이 필요하다. 인증 실패는 MCP 도구 실행 시 자체적으로 보고된다.
 
 ### Step 2: 입력 결정
 
@@ -102,14 +88,16 @@ echo "Session ID: $SESSION_ID"
 ```
 
 `SESSION_ID` 값을 기억하여 이후 모든 파일 경로에 사용한다.
-출력 파일 패턴: `~/.ai/critic-{SESSION_ID}-iter-{N}.json`
 
 ### Step 4: 초기 분석 실행 (Iteration 1)
 
-#### 4a. 프롬프트 작성
+#### 4a. Agent persona 읽기
 
-Write 도구를 사용하여 `/tmp/critic-prompt.txt`에 프롬프트를 작성한다.
-아래 템플릿에서 `{USER_REQUEST}`, `{CONTENT_SECTION}`, `{ITERATION}` 을 치환한다.
+Read 도구로 `${CLAUDE_PLUGIN_ROOT}/agents/codex-critic-agents.md`를 읽어 `AGENT_PERSONA` 내용을 확보한다.
+
+#### 4b. 프롬프트 구성
+
+아래 템플릿에서 `{USER_REQUEST}`, `{CONTENT_SECTION}`, `{ITERATION}`, `{AGENT_PERSONA}`를 치환하여 프롬프트 문자열을 구성한다.
 
 **`CONTENT_TYPE`이 `"diff"`인 경우** `{CONTENT_SECTION}`을 다음으로 구성한다:
 
@@ -132,6 +120,10 @@ Write 도구를 사용하여 `/tmp/critic-prompt.txt`에 프롬프트를 작성�
 **초기 분석 프롬프트 템플릿**:
 
 ```text
+{AGENT_PERSONA}
+
+---
+
 You are a meticulous code reviewer and critic. Your task is to evaluate whether
 the provided content correctly and completely fulfills the original user request.
 
@@ -177,40 +169,15 @@ Be thorough but fair. Only flag real issues, not stylistic preferences unless th
 Output ONLY the JSON object, no markdown fences, no explanation before or after.
 ```
 
-#### 4b. Codex 실행
+#### 4c. Codex MCP 호출
 
-```bash
-JSONL_LOG="$HOME/.ai/critic-${SESSION_ID}-events.jsonl"
-touch "$JSONL_LOG"
-tail -f "$JSONL_LOG" | "$HOME/.ai/stream-progress.sh" &
-TAIL_PID=$!
+`mcp__codex__codex` 도구를 호출하여 구성한 프롬프트를 `prompt` 파라미터로 전달한다.
 
-CODEX_HOME="$HOME/.codex-critic" codex exec \
-  --json \
-  --sandbox "${CRITIC_SANDBOX:-workspace-write}" \
-  --output-schema "$HOME/.codex-critic/critic-schema.json" \
-  --output-last-message ~/.ai/critic-${SESSION_ID}-iter-1.json \
-  - < /tmp/critic-prompt.txt \
-  >> "$JSONL_LOG"
+응답에서 `threadId`를 저장하고, 응답 텍스트에서 JSON 결과를 파싱한다.
 
-sleep 1
-kill $TAIL_PID 2>/dev/null
-wait $TAIL_PID 2>/dev/null
-```
+#### 4d. 결과 검증
 
-실패 시 에러를 사용자에게 보고하고 중단한다.
-
-#### 4c. 결과 읽기 및 검증
-
-Read 도구로 `~/.ai/critic-{SESSION_ID}-iter-1.json`을 읽는다.
-
-JSON이 유효하지 않으면 Bash로 추출을 시도한다:
-
-```bash
-jq . ~/.ai/critic-${SESSION_ID}-iter-1.json
-```
-
-jq도 실패하면 에러를 보고하고 중단한다.
+JSON이 유효한지 확인한다. 유효하지 않으면 에러를 보고하고 중단한다.
 
 `verdict`와 `score` 값을 파악한다.
 
@@ -222,23 +189,15 @@ jq도 실패하면 에러를 보고하고 중단한다.
 - `score >= 8`
 - 반복 횟수가 `CRITIC_MAX_ITER` (기본값: 5)에 도달
 
-**계속 조건**: 중단 조건이 충족되지 않으면 개선 프롬프트를 작성하여 다시 실행한다.
+**계속 조건**: 중단 조건이 충족되지 않으면 `mcp__codex__codex-reply`로 개선을 요청한다.
 
-#### 개선 프롬프트 템플릿
+#### 개선 메시지 템플릿
 
-Write 도구로 `/tmp/critic-prompt.txt`를 다음 내용으로 덮어쓴다:
+`mcp__codex__codex-reply` 도구에 `threadId`와 아래 `message`를 전달한다.
+Codex가 이전 컨텍스트를 기억하므로 원본 콘텐츠를 다시 보낼 필요가 없다.
 
 ```text
-You are refining a previous code review. Review your prior analysis, identify
-any missed issues or false positives, and produce an improved version.
-
-## Original User Request
-{USER_REQUEST}
-
-{CONTENT_SECTION}
-
-## Previous Analysis (Iteration {PREV_ITERATION})
-{PREVIOUS_RESULT_JSON}
+Review your prior analysis (iteration {PREV_ITERATION}) and refine it.
 
 ## Refinement Instructions
 1. Re-examine each issue: remove false positives, add missed problems.
@@ -247,47 +206,23 @@ any missed issues or false positives, and produce an improved version.
 4. If your previous analysis was already thorough and accurate, you may keep
    it largely unchanged but update the iteration number.
 
-## Output Requirements
 Respond with ONLY valid JSON (same schema as before).
 Set "iteration" to {ITERATION}.
 Output ONLY the JSON object, no markdown fences, no explanation before or after.
 ```
 
-실행 명령 (iteration 번호에 맞게 출력 파일 변경):
+응답 텍스트에서 JSON 결과를 파싱하고, `verdict`와 `score`를 재확인한다.
 
-```bash
-JSONL_LOG="$HOME/.ai/critic-${SESSION_ID}-events.jsonl"
-touch "$JSONL_LOG"
-tail -f "$JSONL_LOG" | "$HOME/.ai/stream-progress.sh" &
-TAIL_PID=$!
-
-CODEX_HOME="$HOME/.codex-critic" codex exec \
-  --json \
-  --sandbox "${CRITIC_SANDBOX:-workspace-write}" \
-  --output-schema "$HOME/.codex-critic/critic-schema.json" \
-  --output-last-message ~/.ai/critic-${SESSION_ID}-iter-{N}.json \
-  - < /tmp/critic-prompt.txt \
-  >> "$JSONL_LOG"
-
-sleep 1
-kill $TAIL_PID 2>/dev/null
-wait $TAIL_PID 2>/dev/null
-```
-
-**에러 폴백**: `codex exec`가 실패하면 이전 iteration의 결과를 최종 결과로 사용한다.
+**에러 폴백**: MCP 호출이 실패하면 이전 iteration의 결과를 최종 결과로 사용한다.
 
 ### Step 6: 최종 결과 저장
 
-마지막 iteration의 결과 파일을 `~/.ai/critic-{SESSION_ID}-result.json`으로 복사한다:
+최종 JSON 결과를 `~/.ai/critic-{SESSION_ID}-result.json`에 저장한다:
 
 ```bash
-cp ~/.ai/critic-${SESSION_ID}-iter-{LAST_N}.json ~/.ai/critic-${SESSION_ID}-result.json
-```
-
-임시 프롬프트 파일을 정리한다:
-
-```bash
-rm -f /tmp/critic-prompt.txt
+cat > ~/.ai/critic-${SESSION_ID}-result.json << 'RESULT_EOF'
+{FINAL_RESULT_JSON}
+RESULT_EOF
 ```
 
 ### Step 7: 결과 보고
@@ -325,11 +260,9 @@ JSON 결과를 다음 형식으로 정리하여 사용자에게 보고한다:
 | ----------------------- | --------- | ------------------------------------------------ |
 | `CRITIC_MAX_ITER`       | 5         | 최대 반복 횟수                                   |
 | `CRITIC_MAX_DIFF_LINES` | 500       | diff 최대 줄 수                                  |
-| `CRITIC_SANDBOX`        | workspace-write | Codex sandbox 모드                          |
 
 ## Notes
 
-- Codex는 workspace-write sandbox에서 실행되어 워크스페이스 내 파일 수정이 가능합니다.
-- 결과는 `~/.ai/critic-{SESSION_ID}-result.json`에 저장되며, 반복(iteration) 결과는 `~/.ai/critic-{SESSION_ID}-iter-{N}.json`에 보존됩니다.
+- Codex MCP 도구를 통해 분석을 수행하며, thread 기반 대화로 반복 개선이 가능합니다.
+- 결과는 `~/.ai/critic-{SESSION_ID}-result.json`에 저장됩니다.
 - `~/.ai/` 디렉토리에 런타임 출력물을 저장합니다 (프로젝트 디렉토리를 오염시키지 않음).
-- 프롬프트는 Write 도구로 파일에 작성 후 stdin redirect로 전달합니다 (shell metacharacter 안전).

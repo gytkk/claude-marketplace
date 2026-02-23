@@ -1,15 +1,16 @@
 # Codex Plugin
 
-OpenAI Codex CLI integration for Claude Code. Provides three commands:
+OpenAI Codex MCP integration for Claude Code. Provides three commands via
+`codex mcp-server` (MCP tool-based, thread-aware conversations).
 
 ## Commands
 
 ### `/codex:critic`
 
-Code/plan/content review and validation using Codex CLI in non-interactive mode (`codex exec`).
+Code/plan/content review and validation via Codex MCP tools.
 
 - Validates code changes (git diff), plans, or arbitrary content against user requirements
-- Iterative refinement (up to 5 iterations by default)
+- Iterative refinement via thread-based conversations (up to 5 iterations by default)
 - Scoring system (0-10) with verdict: pass/warn/fail
 - Session-scoped output files: `~/.ai/critic-{SESSION_ID}-result.json`
 
@@ -18,7 +19,7 @@ Code/plan/content review and validation using Codex CLI in non-interactive mode 
 Autonomous deep worker for complex implementation tasks.
 
 - Self-directed execution: explore → plan → execute → verify
-- Iterative execution (up to 3 iterations by default)
+- Iterative execution via thread-based conversations (up to 3 iterations by default)
 - Self-verification of changes
 - Session-scoped output files: `~/.ai/hephaestus-{SESSION_ID}-result.json`
 
@@ -27,14 +28,24 @@ Autonomous deep worker for complex implementation tasks.
 Deep analysis for code, logs, errors, performance, and arbitrary content.
 
 - Systematic, evidence-based analysis with structured findings
-- Iterative deepening (up to 3 iterations by default)
-- Read-only sandbox (workspace-read) — no file modifications
+- Iterative deepening via thread-based conversations (up to 3 iterations by default)
 - Session-scoped output files: `~/.ai/analyze-{SESSION_ID}-result.json`
 
 ## Prerequisites
 
 - [Codex CLI](https://github.com/openai/codex) installed (`npm install -g @openai/codex`)
 - Codex authentication (`codex login`)
+- Codex MCP server registered in Claude Code (`claude mcp add -s user codex -- codex mcp-server`)
+
+## Architecture
+
+Skills use `mcp__codex__codex` and `mcp__codex__codex-reply` MCP tools instead of
+`codex exec` CLI. This provides:
+
+- **No file-based I/O**: Prompts passed directly as parameters (no `/tmp/` files)
+- **Thread-based conversations**: `threadId` enables iterative refinement with full context
+- **Structured responses**: Direct MCP tool responses (no JSONL streaming)
+- **Simplified setup**: No `CODEX_HOME` directory management or symlinks needed
 
 ## Structure
 

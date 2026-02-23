@@ -1,6 +1,6 @@
 ---
 description: >-
-  Codex 기반 자율적 딥 워커. 복잡한 구현 작업을 Codex CLI에 위임하여
+  Codex 기반 자율적 딥 워커. 복잡한 구현 작업을 Codex MCP 도구를 통해 위임하여
   탐색 → 계획 → 실행 → 검증을 자율적으로 수행합니다.
 argument-hint: "<작업 목표 설명>"
 allowed-tools:
@@ -9,27 +9,15 @@ allowed-tools:
   - Write
   - Glob
   - Grep
+  - mcp__codex__codex
+  - mcp__codex__codex-reply
 ---
-
-Set up Codex Hephaestus environment:
-
-```!
-HEPH_HOME="$HOME/.codex-hephaestus"
-mkdir -p "$HEPH_HOME" "$HOME/.ai"
-cp "${CLAUDE_PLUGIN_ROOT}/agents/codex-hephaestus-agents.md" "$HEPH_HOME/AGENTS.md" 2>/dev/null
-cp "${CLAUDE_PLUGIN_ROOT}/references/output-schema.json" "$HEPH_HOME/output-schema.json" 2>/dev/null
-cp "${CLAUDE_PLUGIN_ROOT}/scripts/stream-progress.sh" "$HOME/.ai/stream-progress.sh" 2>/dev/null
-chmod +x "$HOME/.ai/stream-progress.sh" 2>/dev/null
-ln -sf "$HOME/.codex/config.toml" "$HEPH_HOME/config.toml" 2>/dev/null
-ln -sf "$HOME/.codex/auth.json" "$HEPH_HOME/auth.json" 2>/dev/null
-echo "Codex Hephaestus home ready: $HEPH_HOME"
-```
 
 # Codex Hephaestus
 
-OpenAI Codex CLI의 비대화형 모드(`codex exec`)를 사용하여 복잡한 구현 작업을
-자율적으로 수행합니다. Hephaestus(그리스 신화의 대장장이 신)처럼 목표를 받으면
-탐색, 계획, 실행, 검증까지 독립적으로 완료합니다.
+Codex MCP 도구를 사용하여 복잡한 구현 작업을 자율적으로 수행합니다.
+Hephaestus(그리스 신화의 대장장이 신)처럼 목표를 받으면 탐색, 계획, 실행,
+검증까지 독립적으로 완료합니다.
 
 ## Invocation
 
@@ -80,17 +68,24 @@ echo "Session ID: $SESSION_ID"
 ```
 
 `SESSION_ID` 값을 기억하여 이후 모든 파일 경로에 사용한다.
-출력 파일 패턴: `~/.ai/hephaestus-{SESSION_ID}-iter-{N}.json`
 
 ### Step 4: 초기 실행 (Iteration 1)
 
-#### 4a. 프롬프트 작성
+#### 4a. Agent persona 읽기
 
-Write 도구를 사용하여 `/tmp/hephaestus-prompt.txt`에 프롬프트를 작성한다.
+Read 도구로 `${CLAUDE_PLUGIN_ROOT}/agents/codex-hephaestus-agents.md`를 읽어 `AGENT_PERSONA` 내용을 확보한다.
+
+#### 4b. 프롬프트 구성
+
+아래 템플릿에서 `{USER_REQUEST}`, `{TASK_CONTEXT}`, `{ITERATION}`, `{AGENT_PERSONA}`를 치환하여 프롬프트 문자열을 구성한다.
 
 **프롬프트 템플릿**:
 
 ```text
+{AGENT_PERSONA}
+
+---
+
 You are Hephaestus, an autonomous deep worker. Complete the following task
 end-to-end. Do NOT ask questions. Do NOT stop early. Execute until done.
 
@@ -142,40 +137,15 @@ After completing your work, respond with ONLY valid JSON matching this structure
 Output ONLY the JSON object, no markdown fences, no explanation before or after.
 ```
 
-#### 4b. Codex 실행
+#### 4c. Codex MCP 호출
 
-```bash
-JSONL_LOG="$HOME/.ai/hephaestus-${SESSION_ID}-events.jsonl"
-touch "$JSONL_LOG"
-tail -f "$JSONL_LOG" | "$HOME/.ai/stream-progress.sh" &
-TAIL_PID=$!
+`mcp__codex__codex` 도구를 호출하여 구성한 프롬프트를 `prompt` 파라미터로 전달한다.
 
-CODEX_HOME="$HOME/.codex-hephaestus" codex exec \
-  --json \
-  --sandbox "${HEPHAESTUS_SANDBOX:-workspace-write}" \
-  --output-schema "$HOME/.codex-hephaestus/output-schema.json" \
-  --output-last-message ~/.ai/hephaestus-${SESSION_ID}-iter-1.json \
-  - < /tmp/hephaestus-prompt.txt \
-  >> "$JSONL_LOG"
+응답에서 `threadId`를 저장하고, 응답 텍스트에서 JSON 결과를 파싱한다.
 
-sleep 1
-kill $TAIL_PID 2>/dev/null
-wait $TAIL_PID 2>/dev/null
-```
+#### 4d. 결과 검증
 
-실패 시 에러를 사용자에게 보고하고 중단한다.
-
-#### 4c. 결과 읽기 및 검증
-
-Read 도구로 `~/.ai/hephaestus-{SESSION_ID}-iter-1.json`을 읽는다.
-
-JSON이 유효하지 않으면 Bash로 추출을 시도한다:
-
-```bash
-jq . ~/.ai/hephaestus-${SESSION_ID}-iter-1.json
-```
-
-jq도 실패하면 에러를 보고하고 중단한다.
+JSON이 유효한지 확인한다. 유효하지 않으면 에러를 보고하고 중단한다.
 
 `status`와 `issues` 값을 파악한다.
 
@@ -186,77 +156,43 @@ jq도 실패하면 에러를 보고하고 중단한다.
 - `status == "complete"` 이고 `issues`에 critical/major 이슈가 없음
 - 반복 횟수가 `HEPHAESTUS_MAX_ITER` (기본값: 3)에 도달
 
-**계속 조건**: 중단 조건이 충족되지 않으면 개선 프롬프트를 작성하여 다시 실행한다.
+**계속 조건**: 중단 조건이 충족되지 않으면 `mcp__codex__codex-reply`로 개선을 요청한다.
 
-#### 개선 프롬프트 템플릿
+#### 개선 메시지 템플릿
 
-Write 도구로 `/tmp/hephaestus-prompt.txt`를 다음 내용으로 덮어쓴다:
+`mcp__codex__codex-reply` 도구에 `threadId`와 아래 `message`를 전달한다.
+Codex가 이전 컨텍스트를 기억하므로 원본 콘텐츠를 다시 보낼 필요가 없다.
 
 ```text
-You are Hephaestus, continuing a previous execution attempt. The previous
-iteration was incomplete or had issues. Review the previous result and
-complete the remaining work.
+The previous iteration was incomplete or had issues. Continue the work.
 
-## Original Task
-{USER_REQUEST}
-
-## Project Context
-{TASK_CONTEXT}
-
-## Previous Execution Result (Iteration {PREV_ITERATION})
-{PREVIOUS_RESULT_JSON}
+## Previous Result Summary
+- Status: {PREV_STATUS}
+- Issues: {PREV_ISSUES_SUMMARY}
 
 ## Instructions
-1. Review what was done in the previous iteration.
-2. If status was "partial": complete the remaining work.
-3. If status was "failed": try a different approach entirely.
-4. If there were critical/major issues: fix them.
-5. Verify ALL changes (both previous and new).
+1. If status was "partial": complete the remaining work.
+2. If status was "failed": try a different approach entirely.
+3. If there were critical/major issues: fix them.
+4. Verify ALL changes (both previous and new).
 
-## Hard Constraints
-(same as initial prompt)
-
-## Output Requirements
 Respond with ONLY valid JSON (same schema as before).
 Set "iteration" to {ITERATION}.
 Output ONLY the JSON object, no markdown fences, no explanation before or after.
 ```
 
-실행 명령 (iteration 번호에 맞게 출력 파일 변경):
+응답 텍스트에서 JSON 결과를 파싱하고, `status`와 `issues`를 재확인한다.
 
-```bash
-JSONL_LOG="$HOME/.ai/hephaestus-${SESSION_ID}-events.jsonl"
-touch "$JSONL_LOG"
-tail -f "$JSONL_LOG" | "$HOME/.ai/stream-progress.sh" &
-TAIL_PID=$!
-
-CODEX_HOME="$HOME/.codex-hephaestus" codex exec \
-  --json \
-  --sandbox "${HEPHAESTUS_SANDBOX:-workspace-write}" \
-  --output-schema "$HOME/.codex-hephaestus/output-schema.json" \
-  --output-last-message ~/.ai/hephaestus-${SESSION_ID}-iter-{N}.json \
-  - < /tmp/hephaestus-prompt.txt \
-  >> "$JSONL_LOG"
-
-sleep 1
-kill $TAIL_PID 2>/dev/null
-wait $TAIL_PID 2>/dev/null
-```
-
-**에러 폴백**: `codex exec`가 실패하면 이전 iteration의 결과를 최종 결과로 사용한다.
+**에러 폴백**: MCP 호출이 실패하면 이전 iteration의 결과를 최종 결과로 사용한다.
 
 ### Step 6: 최종 결과 저장
 
-마지막 iteration의 결과 파일을 `~/.ai/hephaestus-{SESSION_ID}-result.json`으로 복사한다:
+최종 JSON 결과를 `~/.ai/hephaestus-{SESSION_ID}-result.json`에 저장한다:
 
 ```bash
-cp ~/.ai/hephaestus-${SESSION_ID}-iter-{LAST_N}.json ~/.ai/hephaestus-${SESSION_ID}-result.json
-```
-
-임시 프롬프트 파일을 정리한다:
-
-```bash
-rm -f /tmp/hephaestus-prompt.txt
+cat > ~/.ai/hephaestus-${SESSION_ID}-result.json << 'RESULT_EOF'
+{FINAL_RESULT_JSON}
+RESULT_EOF
 ```
 
 ### Step 7: 변경사항 검증
@@ -319,12 +255,10 @@ JSON 결과를 다음 형식으로 정리하여 사용자에게 보고한다:
 | 환경변수 | 기본값 | 설명 |
 |----------|--------|------|
 | `HEPHAESTUS_MAX_ITER` | 3 | 최대 반복 횟수 |
-| `HEPHAESTUS_SANDBOX` | workspace-write | Codex sandbox 모드 |
 
 ## Notes
 
-- Codex는 `workspace-write` sandbox에서 실행되어 워크스페이스 내 파일을 자유롭게 수정할 수 있습니다.
-- 결과는 `~/.ai/hephaestus-{SESSION_ID}-result.json`에 저장되며, iteration 결과는 `~/.ai/hephaestus-{SESSION_ID}-iter-{N}.json`에 보존됩니다.
+- Codex MCP 도구를 통해 작업을 수행하며, thread 기반 대화로 반복 개선이 가능합니다.
+- 결과는 `~/.ai/hephaestus-{SESSION_ID}-result.json`에 저장됩니다.
 - `~/.ai/` 디렉토리에 런타임 출력물을 저장합니다 (프로젝트 디렉토리를 오염시키지 않음).
-- 프롬프트는 Write 도구로 파일에 작성 후 stdin redirect로 전달합니다 (shell metacharacter 안전).
 - Codex 완료 후 Claude Code가 독립적으로 변경사항을 검증합니다 (Step 7).
