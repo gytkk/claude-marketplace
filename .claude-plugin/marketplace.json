@@ -8,13 +8,13 @@
   },
   "plugins": [
     {
-      "name": "gytkk-agents",
-      "description": "Custom agents: code reviewer, software dev engineer, test code writer",
+      "name": "codex",
+      "description": "Codex CLI integration: autonomous deep worker (Hephaestus) and code critic",
       "version": "1.0.0",
       "author": {
         "name": "gytkk"
       },
-      "source": "./agents",
+      "source": "./skills/codex",
       "category": "productivity"
     },
     {
