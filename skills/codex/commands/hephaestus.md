@@ -15,9 +15,11 @@ Set up Codex Hephaestus environment:
 
 ```!
 HEPH_HOME="$HOME/.codex-hephaestus"
-mkdir -p "$HEPH_HOME"
+mkdir -p "$HEPH_HOME" "$HOME/.ai"
 cp "${CLAUDE_PLUGIN_ROOT}/agents/codex-hephaestus-agents.md" "$HEPH_HOME/AGENTS.md" 2>/dev/null
 cp "${CLAUDE_PLUGIN_ROOT}/references/output-schema.json" "$HEPH_HOME/output-schema.json" 2>/dev/null
+cp "${CLAUDE_PLUGIN_ROOT}/scripts/stream-progress.sh" "$HOME/.ai/stream-progress.sh" 2>/dev/null
+chmod +x "$HOME/.ai/stream-progress.sh" 2>/dev/null
 ln -sf "$HOME/.codex/config.toml" "$HEPH_HOME/config.toml" 2>/dev/null
 ln -sf "$HOME/.codex/auth.json" "$HEPH_HOME/auth.json" 2>/dev/null
 echo "Codex Hephaestus home ready: $HEPH_HOME"
@@ -144,10 +146,12 @@ Output ONLY the JSON object, no markdown fences, no explanation before or after.
 
 ```bash
 CODEX_HOME="$HOME/.codex-hephaestus" codex exec \
+  --json \
   --sandbox "${HEPHAESTUS_SANDBOX:-workspace-write}" \
   --output-schema "$HOME/.codex-hephaestus/output-schema.json" \
   --output-last-message ~/.ai/hephaestus-${SESSION_ID}-iter-1.json \
-  - < /tmp/hephaestus-prompt.txt
+  - < /tmp/hephaestus-prompt.txt \
+  | "$HOME/.ai/stream-progress.sh"
 ```
 
 실패 시 에러를 사용자에게 보고하고 중단한다.
@@ -213,10 +217,12 @@ Output ONLY the JSON object, no markdown fences, no explanation before or after.
 
 ```bash
 CODEX_HOME="$HOME/.codex-hephaestus" codex exec \
+  --json \
   --sandbox "${HEPHAESTUS_SANDBOX:-workspace-write}" \
   --output-schema "$HOME/.codex-hephaestus/output-schema.json" \
   --output-last-message ~/.ai/hephaestus-${SESSION_ID}-iter-{N}.json \
-  - < /tmp/hephaestus-prompt.txt
+  - < /tmp/hephaestus-prompt.txt \
+  | "$HOME/.ai/stream-progress.sh"
 ```
 
 **에러 폴백**: `codex exec`가 실패하면 이전 iteration의 결과를 최종 결과로 사용한다.

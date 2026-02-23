@@ -15,9 +15,11 @@ Set up Codex Critic environment:
 
 ```!
 CRITIC_HOME="$HOME/.codex-critic"
-mkdir -p "$CRITIC_HOME"
+mkdir -p "$CRITIC_HOME" "$HOME/.ai"
 cp "${CLAUDE_PLUGIN_ROOT}/agents/codex-critic-agents.md" "$CRITIC_HOME/AGENTS.md" 2>/dev/null
 cp "${CLAUDE_PLUGIN_ROOT}/references/critic-schema.json" "$CRITIC_HOME/critic-schema.json" 2>/dev/null
+cp "${CLAUDE_PLUGIN_ROOT}/scripts/stream-progress.sh" "$HOME/.ai/stream-progress.sh" 2>/dev/null
+chmod +x "$HOME/.ai/stream-progress.sh" 2>/dev/null
 ln -sf "$HOME/.codex/config.toml" "$CRITIC_HOME/config.toml" 2>/dev/null
 ln -sf "$HOME/.codex/auth.json" "$CRITIC_HOME/auth.json" 2>/dev/null
 echo "Codex Critic home ready: $CRITIC_HOME"
@@ -179,10 +181,12 @@ Output ONLY the JSON object, no markdown fences, no explanation before or after.
 
 ```bash
 CODEX_HOME="$HOME/.codex-critic" codex exec \
+  --json \
   --sandbox "${CRITIC_SANDBOX:-workspace-write}" \
   --output-schema "$HOME/.codex-critic/critic-schema.json" \
   --output-last-message ~/.ai/critic-${SESSION_ID}-iter-1.json \
-  - < /tmp/critic-prompt.txt
+  - < /tmp/critic-prompt.txt \
+  | "$HOME/.ai/stream-progress.sh"
 ```
 
 실패 시 에러를 사용자에게 보고하고 중단한다.
@@ -244,10 +248,12 @@ Output ONLY the JSON object, no markdown fences, no explanation before or after.
 
 ```bash
 CODEX_HOME="$HOME/.codex-critic" codex exec \
+  --json \
   --sandbox "${CRITIC_SANDBOX:-workspace-write}" \
   --output-schema "$HOME/.codex-critic/critic-schema.json" \
   --output-last-message ~/.ai/critic-${SESSION_ID}-iter-{N}.json \
-  - < /tmp/critic-prompt.txt
+  - < /tmp/critic-prompt.txt \
+  | "$HOME/.ai/stream-progress.sh"
 ```
 
 **에러 폴백**: `codex exec`가 실패하면 이전 iteration의 결과를 최종 결과로 사용한다.
