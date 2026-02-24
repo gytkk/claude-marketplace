@@ -1,95 +1,52 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Codex Analyze Result",
-  "description": "Structured output from Codex deep analysis",
+  "description": "Compact output from Codex deep analysis",
   "type": "object",
   "additionalProperties": false,
   "properties": {
     "status": {
       "type": "string",
-      "enum": ["complete", "partial"],
-      "description": "Analysis status: complete (thorough analysis done), partial (some areas not fully covered)"
+      "enum": ["complete", "partial"]
     },
     "summary": {
       "type": "string",
-      "description": "One-paragraph summary of the analysis findings"
-    },
-    "scope": {
-      "type": "string",
-      "description": "Description of what was analyzed (files, directories, content type)"
+      "maxLength": 100
     },
     "findings": {
       "type": "array",
-      "description": "List of analysis findings",
+      "maxItems": 5,
       "items": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
-          "category": {
-            "type": "string",
-            "description": "Finding category (e.g., architecture, security, performance, quality, dependency, pattern)"
-          },
           "severity": {
             "type": "string",
             "enum": ["critical", "major", "minor", "info"]
           },
           "title": {
             "type": "string",
-            "description": "Short title for the finding"
-          },
-          "description": {
-            "type": "string",
-            "description": "Detailed description of the finding"
+            "maxLength": 50
           },
           "evidence": {
             "type": "string",
-            "description": "Specific evidence: file:line reference, data point, or metric"
+            "maxLength": 80
           },
           "recommendation": {
             "type": "string",
-            "description": "Actionable recommendation to address this finding"
+            "maxLength": 80
           }
         },
-        "required": ["category", "severity", "title", "description", "evidence", "recommendation"]
+        "required": ["severity", "title", "evidence", "recommendation"]
       }
     },
     "metrics": {
       "type": "object",
-      "additionalProperties": true,
-      "description": "Quantitative metrics from the analysis (free-form key-value pairs)"
-    },
-    "recommendations": {
-      "type": "array",
-      "description": "Prioritized list of actionable recommendations",
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "priority": {
-            "type": "string",
-            "enum": ["high", "medium", "low"]
-          },
-          "title": {
-            "type": "string",
-            "description": "Short title for the recommendation"
-          },
-          "description": {
-            "type": "string",
-            "description": "Detailed description with expected impact"
-          },
-          "effort": {
-            "type": "string",
-            "enum": ["trivial", "small", "medium", "large"],
-            "description": "Estimated effort to implement"
-          }
-        },
-        "required": ["priority", "title", "description", "effort"]
-      }
+      "additionalProperties": true
     },
     "iteration": {
-      "type": "integer",
-      "description": "Which iteration produced this result"
+      "type": "integer"
     }
   },
-  "required": ["status", "summary", "scope", "findings", "metrics", "recommendations", "iteration"]
+  "required": ["status", "summary", "findings", "metrics", "iteration"]
 }

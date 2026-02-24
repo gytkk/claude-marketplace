@@ -1,26 +1,24 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Codex Critic Result",
-  "description": "Structured output from Codex critic analysis",
+  "description": "Compact output from Codex critic analysis",
   "type": "object",
   "additionalProperties": false,
   "properties": {
     "verdict": {
       "type": "string",
-      "enum": ["pass", "warn", "fail"],
-      "description": "Overall verdict: pass (good to go), warn (minor issues), fail (significant problems)"
+      "enum": ["pass", "warn", "fail"]
     },
     "score": {
-      "type": "number",
-      "description": "Quality score from 0 (worst) to 10 (best)"
+      "type": "number"
     },
     "summary": {
       "type": "string",
-      "description": "One-paragraph summary of the review findings"
+      "maxLength": 100
     },
     "issues": {
       "type": "array",
-      "description": "List of identified issues",
+      "maxItems": 5,
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -29,57 +27,25 @@
             "type": "string",
             "enum": ["critical", "major", "minor", "info"]
           },
-          "category": {
-            "type": "string",
-            "description": "Issue category (e.g., security, logic, style, performance, correctness)"
-          },
           "file": {
             "type": "string",
-            "description": "Affected file path (if applicable, empty string if not)"
-          },
-          "line": {
-            "type": "number",
-            "description": "Approximate line number (0 if not applicable)"
+            "description": "file:line format"
           },
           "description": {
             "type": "string",
-            "description": "What the issue is"
+            "maxLength": 80
           },
           "suggestion": {
             "type": "string",
-            "description": "How to fix or improve"
+            "maxLength": 80
           }
         },
-        "required": ["severity", "category", "file", "line", "description", "suggestion"]
-      }
-    },
-    "checklist": {
-      "type": "array",
-      "description": "Verification checklist items",
-      "items": {
-        "type": "object",
-        "additionalProperties": false,
-        "properties": {
-          "item": {
-            "type": "string",
-            "description": "What was checked"
-          },
-          "passed": {
-            "type": "boolean",
-            "description": "Whether the check passed"
-          },
-          "note": {
-            "type": "string",
-            "description": "Additional context"
-          }
-        },
-        "required": ["item", "passed", "note"]
+        "required": ["severity", "file", "description", "suggestion"]
       }
     },
     "iteration": {
-      "type": "integer",
-      "description": "Which iteration produced this result"
+      "type": "integer"
     }
   },
-  "required": ["verdict", "score", "summary", "issues", "checklist", "iteration"]
+  "required": ["verdict", "score", "summary", "issues", "iteration"]
 }

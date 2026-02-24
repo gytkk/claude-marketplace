@@ -1,106 +1,57 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "Hephaestus Execution Result",
-  "description": "Structured output from Hephaestus autonomous deep worker execution",
+  "description": "Compact output from Hephaestus autonomous deep worker",
   "type": "object",
   "additionalProperties": false,
   "properties": {
     "status": {
       "type": "string",
-      "enum": ["complete", "partial", "failed"],
-      "description": "Execution status: complete (all done), partial (some work done), failed (could not proceed)"
+      "enum": ["complete", "partial", "failed"]
     },
     "summary": {
       "type": "string",
-      "description": "One-paragraph summary of what was accomplished"
-    },
-    "approach": {
-      "type": "string",
-      "description": "Description of the approach taken to solve the task"
+      "maxLength": 100
     },
     "files_modified": {
       "type": "array",
-      "description": "List of files created, modified, or deleted",
       "items": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
           "path": {
-            "type": "string",
-            "description": "File path relative to workspace root"
+            "type": "string"
           },
           "action": {
             "type": "string",
-            "enum": ["create", "modify", "delete"],
-            "description": "What was done to the file"
-          },
-          "description": {
-            "type": "string",
-            "description": "Brief description of what changed in this file"
+            "enum": ["create", "modify", "delete"]
           }
         },
-        "required": ["path", "action", "description"]
+        "required": ["path", "action"]
       }
-    },
-    "verification": {
-      "type": "object",
-      "additionalProperties": false,
-      "description": "Self-verification results",
-      "properties": {
-        "syntax_check": {
-          "type": "boolean",
-          "description": "Whether syntax/type checks passed on modified files"
-        },
-        "build_check": {
-          "type": "boolean",
-          "description": "Whether the build succeeded (if applicable)"
-        },
-        "test_check": {
-          "type": "boolean",
-          "description": "Whether tests passed (if applicable)"
-        },
-        "notes": {
-          "type": "string",
-          "description": "Additional verification notes or caveats"
-        }
-      },
-      "required": ["syntax_check", "build_check", "test_check", "notes"]
     },
     "issues": {
       "type": "array",
-      "description": "Issues encountered during execution",
+      "maxItems": 3,
       "items": {
         "type": "object",
         "additionalProperties": false,
         "properties": {
           "severity": {
             "type": "string",
-            "enum": ["critical", "major", "minor"],
-            "description": "Issue severity"
+            "enum": ["critical", "major", "minor"]
           },
           "description": {
             "type": "string",
-            "description": "What the issue is"
-          },
-          "resolution": {
-            "type": "string",
-            "description": "How it was resolved, or why it remains unresolved"
+            "maxLength": 80
           }
         },
-        "required": ["severity", "description", "resolution"]
-      }
-    },
-    "next_steps": {
-      "type": "array",
-      "description": "Remaining work that could not be completed autonomously",
-      "items": {
-        "type": "string"
+        "required": ["severity", "description"]
       }
     },
     "iteration": {
-      "type": "integer",
-      "description": "Which iteration produced this result"
+      "type": "integer"
     }
   },
-  "required": ["status", "summary", "approach", "files_modified", "verification", "issues", "next_steps", "iteration"]
+  "required": ["status", "summary", "files_modified", "issues", "iteration"]
 }

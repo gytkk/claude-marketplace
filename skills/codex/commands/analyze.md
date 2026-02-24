@@ -157,38 +157,31 @@ analysis of the provided content and produce structured, actionable insights.
 8. Provide actionable, specific recommendations with estimated effort.
 
 ## Output Requirements
-Respond with ONLY valid JSON matching this structure:
+
+CONCISENESS RULES (CRITICAL — follow strictly):
+- summary: ONE sentence, max 100 characters
+- Do NOT include scope or top-level recommendations fields
+- findings: max 5 items, title max 50 chars, evidence max 80 chars, recommendation max 80 chars
+- Do NOT include category or description in findings
+- metrics: max 5 key-value pairs
+
+Respond with ONLY valid JSON:
 {
   "status": "complete" | "partial",
-  "summary": "<one paragraph summary of analysis>",
-  "scope": "<what was analyzed>",
+  "summary": "<one sentence, max 100 chars>",
   "findings": [
     {
-      "category": "<e.g., architecture, security, performance, quality, dependency, pattern>",
       "severity": "critical" | "major" | "minor" | "info",
-      "title": "<short title>",
-      "description": "<detailed description>",
-      "evidence": "<file:line reference or data evidence>",
-      "recommendation": "<specific actionable recommendation>"
+      "title": "<max 50 chars>",
+      "evidence": "<file:line or data, max 80 chars>",
+      "recommendation": "<max 80 chars>"
     }
   ],
-  "metrics": {
-    "<metric_name>": <value>,
-    ...
-  },
-  "recommendations": [
-    {
-      "priority": "high" | "medium" | "low",
-      "title": "<short title>",
-      "description": "<detailed description with expected impact>",
-      "effort": "trivial" | "small" | "medium" | "large"
-    }
-  ],
+  "metrics": {},
   "iteration": {ITERATION}
 }
 
-Be thorough and evidence-based. Every finding must reference specific files, lines, or data.
-Output ONLY the JSON object, no markdown fences, no explanation before or after.
+Every finding must reference specific evidence. Output ONLY the JSON, no fences.
 ```
 
 #### 4c. Codex MCP Invocation
@@ -218,18 +211,8 @@ Pass the `threadId` and the message below to the `mcp__codex__codex-reply` tool.
 Since Codex retains previous context, there is no need to resend the original content.
 
 ```text
-Continue refining your analysis from iteration {PREV_ITERATION}.
-
-## Refinement Instructions
-1. Validate previous findings: keep accurate findings, correct weak ones.
-2. Search for missed patterns, correlations, and root causes.
-3. Improve quantification and evidence quality.
-4. Re-prioritize findings and recommendations by impact and effort.
-5. If analysis is already complete, keep structure and update iteration only.
-
-Respond with ONLY valid JSON (same schema as before).
-Set "iteration" to {ITERATION}.
-Output ONLY the JSON object, no markdown fences, no explanation before or after.
+Refine iteration {PREV_ITERATION}: validate findings, fix weak ones, add missed patterns. Stay concise (summary ≤100 chars, max 5 findings, no scope/recommendations/category/description).
+JSON only, same schema, iteration={ITERATION}.
 ```
 
 Parse the JSON result from the response text and re-check `status` and `findings`.

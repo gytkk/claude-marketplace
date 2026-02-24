@@ -160,33 +160,31 @@ the provided content correctly and completely fulfills the original user request
 5. Produce a structured JSON review.
 
 ## Output Requirements
-Respond with ONLY valid JSON matching this structure:
+
+CONCISENESS RULES (CRITICAL — follow strictly):
+- summary: ONE sentence, max 100 characters
+- Each issue: description max 80 chars, suggestion max 80 chars
+- Maximum 5 issues total (prioritize by severity)
+- Do NOT include checklist
+- Do NOT include category field
+
+Respond with ONLY valid JSON:
 {
   "verdict": "pass" | "warn" | "fail",
   "score": <0-10>,
-  "summary": "<one paragraph summary>",
+  "summary": "<one sentence, max 100 chars>",
   "issues": [
     {
       "severity": "critical" | "major" | "minor" | "info",
-      "category": "<category>",
-      "file": "<file path if applicable>",
-      "line": <line number if applicable>,
-      "description": "<what the issue is>",
-      "suggestion": "<how to fix>"
-    }
-  ],
-  "checklist": [
-    {
-      "item": "<what was checked>",
-      "passed": true | false,
-      "note": "<additional context>"
+      "file": "<file:line>",
+      "description": "<max 80 chars>",
+      "suggestion": "<max 80 chars>"
     }
   ],
   "iteration": {ITERATION}
 }
 
-Be thorough but fair. Only flag real issues, not stylistic preferences unless they violate project conventions.
-Output ONLY the JSON object, no markdown fences, no explanation before or after.
+Only flag real issues. Output ONLY the JSON, no fences, no explanation.
 ```
 
 #### 4c. Codex MCP Invocation
@@ -217,18 +215,8 @@ Pass the `threadId` and the message below to the `mcp__codex__codex-reply` tool.
 Since Codex retains previous context, there is no need to resend the original content.
 
 ```text
-Review your prior analysis (iteration {PREV_ITERATION}) and refine it.
-
-## Refinement Instructions
-1. Re-examine each issue: remove false positives, add missed problems.
-2. Recalibrate the score based on your refined understanding.
-3. Ensure the checklist is comprehensive.
-4. If your previous analysis was already thorough and accurate, you may keep
-   it largely unchanged but update the iteration number.
-
-Respond with ONLY valid JSON (same schema as before).
-Set "iteration" to {ITERATION}.
-Output ONLY the JSON object, no markdown fences, no explanation before or after.
+Refine iteration {PREV_ITERATION}: remove false positives, add missed issues, recalibrate score. Stay concise (summary ≤100 chars, descriptions ≤80 chars, max 5 issues, no checklist).
+JSON only, same schema, iteration={ITERATION}.
 ```
 
 Parse the JSON result from the response text and re-check `verdict` and `score`.

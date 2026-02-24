@@ -134,28 +134,27 @@ After 3 failures, revert and report what went wrong.
 - Never introduce commented-out code
 
 ## Output Requirements
-After completing your work, respond with ONLY valid JSON matching this structure:
+
+CONCISENESS RULES (CRITICAL — follow strictly):
+- summary: ONE sentence, max 100 characters
+- Do NOT include approach, verification, or next_steps fields
+- files_modified: path and action only, no description
+- Maximum 3 issues (only if critical/major)
+
+After completing your work, respond with ONLY valid JSON:
 {
   "status": "complete" | "partial" | "failed",
-  "summary": "<one paragraph of what was accomplished>",
-  "approach": "<description of approach taken>",
+  "summary": "<one sentence, max 100 chars>",
   "files_modified": [
-    {"path": "<relative path>", "action": "create|modify|delete", "description": "<what changed>"}
+    {"path": "<relative path>", "action": "create|modify|delete"}
   ],
-  "verification": {
-    "syntax_check": true|false,
-    "build_check": true|false,
-    "test_check": true|false,
-    "notes": "<verification details>"
-  },
   "issues": [
-    {"severity": "critical|major|minor", "description": "<issue>", "resolution": "<how resolved or why unresolved>"}
+    {"severity": "critical|major|minor", "description": "<max 80 chars>"}
   ],
-  "next_steps": ["<remaining work if any>"],
   "iteration": {ITERATION}
 }
 
-Output ONLY the JSON object, no markdown fences, no explanation before or after.
+Output ONLY the JSON, no fences, no explanation.
 ```
 
 #### 4c. Codex MCP Invocation
@@ -187,21 +186,8 @@ Pass the `threadId` and the message below to the `mcp__codex__codex-reply` tool.
 Since Codex retains previous context, there is no need to resend the original content.
 
 ```text
-The previous iteration was incomplete or had issues. Continue the work.
-
-## Previous Result Summary
-- Status: {PREV_STATUS}
-- Issues: {PREV_ISSUES_SUMMARY}
-
-## Instructions
-1. If status was "partial": complete the remaining work.
-2. If status was "failed": try a different approach entirely.
-3. If there were critical/major issues: fix them.
-4. Verify ALL changes (both previous and new).
-
-Respond with ONLY valid JSON (same schema as before).
-Set "iteration" to {ITERATION}.
-Output ONLY the JSON object, no markdown fences, no explanation before or after.
+Previous: status={PREV_STATUS}, issues={PREV_ISSUES_SUMMARY}. Complete remaining work or fix issues. Verify all changes. Stay concise (summary ≤100 chars, max 3 issues, no approach/verification/next_steps).
+JSON only, same schema, iteration={ITERATION}.
 ```
 
 Parse the JSON result from the response text and re-check `status` and `issues`.
