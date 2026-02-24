@@ -55,37 +55,35 @@ command -v codex >/dev/null 2>&1 || { echo "ERROR: codex CLI not found. Install:
 
 ### Step 2: Determine Input
 
-Determine the content to verify based on the following priority.
+Determine the review target. **Do NOT read file content or run git diff** — Codex will access
+files and run commands directly via the `cwd` parameter.
 
-#### Mode A: Explicit Content (Arbitrary Input)
+#### Mode A: Explicit Target (Arbitrary Input)
 
-If the user provides any of the following, use that content as `REVIEW_CONTENT`:
+If the user provides any of the following:
 
-- Specified file path → Read with the Read tool
-- Directly passed text block → Use as-is
-- Implementation plan or design document → Collect that content
+- File path → Record the path (do NOT Read the content)
+- Text block → Use as-is (embed in prompt; this is the only case where content is embedded)
+- Implementation plan or design document → Record its file path
 
-Set `CONTENT_TYPE` to `"arbitrary"`.
+Set `CONTENT_TYPE` to `"arbitrary"` and store paths in `TARGET_PATHS`.
 
 #### Mode B: Git Diff (Default Mode)
 
-If no explicit content is provided, collect git diff. Cascade in the following order, using the first non-empty result:
+If no explicit content is provided, determine which diff type to review.
+Run the following **only to check if a diff exists** (not to capture content):
 
 ```bash
-# 1. Staged changes
-git diff --staged 2>/dev/null
-
-# 2. Working tree changes
-git diff 2>/dev/null
-
-# 3. Last commit
-git diff HEAD~1 HEAD 2>/dev/null
+# Check existence only — do NOT capture output for embedding
+git diff --staged --stat 2>/dev/null   # 1. Staged changes
+git diff --stat 2>/dev/null            # 2. Working tree changes
+git diff HEAD~1 HEAD --stat 2>/dev/null # 3. Last commit
 ```
 
-If a diff exists, set `CONTENT_TYPE` to `"diff"`.
+Use the first non-empty result and record the corresponding `DIFF_COMMAND`:
+- `"git diff --staged"`, `"git diff"`, or `"git diff HEAD~1 HEAD"`
 
-**Truncation**: If content exceeds `CRITIC_MAX_DIFF_LINES` (default: 300),
-use only the first N lines and append `[... truncated ...]`.
+Set `CONTENT_TYPE` to `"diff"`.
 
 #### Mode C: Conversation Context Fallback
 
@@ -93,7 +91,7 @@ If neither Mode A nor B yields content, infer the most recent work
 (code changes, plans, etc.) from the current conversation context.
 If inference is not possible, ask the user to specify the verification target and stop.
 
-**User output**: One-line summary of the determined input (e.g., "Reviewing: staged changes (42 lines)" or "Reviewing: `auth-plan.md`").
+**User output**: One-line summary (e.g., "Reviewing: staged changes" or "Reviewing: `auth-plan.md`").
 
 ### Step 3: Generate Session ID and Prepare Output Directory
 
@@ -117,7 +115,7 @@ Use the Read tool to read `${CLAUDE_PLUGIN_ROOT}/agents/codex-critic-agents.md` 
 
 #### 4b. Compose Prompt Parameters
 
-Compose three separate parameters to keep the MCP tool call concise in the UI.
+**Key principle**: Do NOT embed file content or diff output in the prompt. Let Codex access files and run git commands directly.
 
 **`developer-instructions`**: Set to the `{AGENT_PERSONA}` content read in Step 4a.
 
@@ -125,47 +123,46 @@ Compose three separate parameters to keep the MCP tool call concise in the UI.
 
 ```text
 Meticulous code reviewer. Evaluate whether content fulfills the original request.
+IMPORTANT: Read the specified files or run the specified git diff command FIRST. Cite evidence from actual content. Never answer without reading.
 Check: correctness, completeness, security, style, edge cases, bugs. For diffs: error handling, performance, tests. For plans: feasibility, risks.
 CONCISENESS: summary ≤100 chars. Max 5 issues (no checklist/category). description ≤80, suggestion ≤80 chars.
 JSON only, no fences: {"verdict":"pass|warn|fail","score":0-10,"summary":"...","issues":[{"severity":"critical|major|minor|info","file":"file:line","description":"...","suggestion":"..."}],"iteration":{ITERATION}}
 Only flag real issues.
 ```
 
-**`prompt`**: Compose from `{USER_REQUEST}` and `{CONTENT_SECTION}` only.
+**`prompt`**: Compose from `{USER_REQUEST}` and review target reference only (NOT content).
 
-When `CONTENT_TYPE` is `"diff"`, compose `{CONTENT_SECTION}` as:
-
-````text
-## Code Changes (Diff)
-```diff
-{REVIEW_CONTENT}
-```
-````
-
-When `CONTENT_TYPE` is `"arbitrary"`, compose `{CONTENT_SECTION}` as:
-
-````text
-## Content Under Review
-```
-{REVIEW_CONTENT}
-```
-````
-
-The prompt string:
+When `CONTENT_TYPE` is `"diff"`:
 
 ```text
 ## Original User Request
 {USER_REQUEST}
 
-{CONTENT_SECTION}
+## Review Target
+Run `{DIFF_COMMAND}` to see the changes to review.
 ```
+
+When `CONTENT_TYPE` is `"arbitrary"` with file paths:
+
+```text
+## Original User Request
+{USER_REQUEST}
+
+## Review Target
+{TARGET_PATHS}
+```
+
+When `CONTENT_TYPE` is `"arbitrary"` with a text block, embed the text directly in the prompt.
 
 #### 4c. Codex MCP Invocation
 
-Call the `mcp__codex__codex` tool with three parameters:
-- `prompt`: The task-specific prompt composed above (user request + content only)
+Call the `mcp__codex__codex` tool with the following parameters:
+- `prompt`: The task-specific prompt (user request + review target reference — NOT content)
 - `developer-instructions`: The agent persona from Step 4a
 - `base-instructions`: The static instructions and output schema from Step 4b
+- `cwd`: Current working directory (absolute path from `$PWD`)
+- `sandbox`: `"read-only"`
+- `approval-policy`: `"never"`
 
 Save the `threadId` from the response and parse the JSON result from the response text.
 
@@ -230,7 +227,6 @@ Proceed with fixes only after user approval.
 | Environment Variable    | Default | Description              |
 | ----------------------- | ------- | ------------------------ |
 | `CRITIC_MAX_ITER`       | 5       | Maximum iteration count  |
-| `CRITIC_MAX_DIFF_LINES` | 300     | Maximum diff lines       |
 
 ## Notes
 

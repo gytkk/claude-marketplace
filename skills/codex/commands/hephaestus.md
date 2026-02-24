@@ -59,22 +59,20 @@ Do not proceed to any subsequent steps.
 
 ### Step 2: Gather Context
 
-Collect the context needed for the task, including:
+Collect **file paths only** — do NOT read file content. Codex will access files directly via `cwd`.
 
 1. **User request**: The task objective passed when invoking the skill
-2. **Project structure**: Relevant file/directory listings (collected via Glob/Grep)
-3. **Related code**: Contents of files directly related to the task (collected via Read)
-4. **Existing patterns**: Code style and structural patterns of the project
+2. **Project structure**: Relevant file/directory paths (collected via Glob/Grep)
+3. **Key file paths**: Files directly related to the task (record paths, do NOT Read content)
 
 Collection criteria:
-- If the user mentioned specific files, Read those files
-- If the work area is clear, explore that directory with Glob
-- If the work area is unclear, search for related code with Grep
-- Limit context to a maximum of 300 lines (if exceeded, excerpt only key portions)
+- If the user mentioned specific files, record those paths
+- If the work area is clear, list that directory with Glob
+- If the work area is unclear, search for related files with Grep
 
-Store collected context in the `TASK_CONTEXT` variable.
+Store collected paths in `TARGET_PATHS` (newline-separated list).
 
-**User output**: One-line summary of gathered context (e.g., "Context: 8 files in `src/auth/`, existing patterns collected").
+**User output**: One-line summary (e.g., "Context: 8 files in `src/auth/`").
 
 ### Step 3: Generate Session ID and Prepare Output Directory
 
@@ -98,7 +96,7 @@ Use the Read tool to read `${CLAUDE_PLUGIN_ROOT}/agents/codex-hephaestus-agents.
 
 #### 4b. Compose Prompt Parameters
 
-Compose three separate parameters to keep the MCP tool call concise in the UI.
+**Key principle**: Do NOT embed file content in the prompt. Pass file paths and let Codex read them directly.
 
 **`developer-instructions`**: Set to the `{AGENT_PERSONA}` content read in Step 4a.
 
@@ -106,6 +104,7 @@ Compose three separate parameters to keep the MCP tool call concise in the UI.
 
 ```text
 Autonomous deep worker. Complete task end-to-end. No questions. No stopping early.
+IMPORTANT: Read all specified files FIRST before making any changes. Re-read modified files after each change to verify correctness.
 Rules: 1) EXPLORE: read all relevant files, understand patterns. 2) PLAN: determine exact changes. 3) EXECUTE: precise, surgical changes matching existing style. 4) VERIFY: re-read every modified file.
 If verification fails, retry (max 3). After 3 failures, revert and report.
 Hard constraints: follow existing patterns, no type suppression, no broken state, no deleting tests, no TODOs, no commented-out code.
@@ -113,22 +112,25 @@ CONCISENESS: summary ≤100 chars. No approach/verification/next_steps. files_mo
 JSON only, no fences: {"status":"complete|partial|failed","summary":"...","files_modified":[{"path":"...","action":"create|modify|delete"}],"issues":[{"severity":"critical|major|minor","description":"≤80 chars"}],"iteration":{ITERATION}}
 ```
 
-**`prompt`**: Compose from `{USER_REQUEST}` and `{TASK_CONTEXT}` only:
+**`prompt`**: Compose from `{USER_REQUEST}` and `{TARGET_PATHS}` only (NOT file content):
 
 ```text
 ## Task
 {USER_REQUEST}
 
-## Project Context
-{TASK_CONTEXT}
+## Key Files
+{TARGET_PATHS}
 ```
 
 #### 4c. Codex MCP Invocation
 
-Call the `mcp__codex__codex` tool with three parameters:
-- `prompt`: The task-specific prompt composed above (task request + project context only)
+Call the `mcp__codex__codex` tool with the following parameters:
+- `prompt`: The task-specific prompt (task request + file paths only — NOT file content)
 - `developer-instructions`: The agent persona from Step 4a
 - `base-instructions`: The static instructions and output schema from Step 4b
+- `cwd`: Current working directory (absolute path from `$PWD`)
+- `sandbox`: `"workspace-write"`
+- `approval-policy`: `"never"`
 
 Save the `threadId` from the response and parse the JSON result from the response text.
 
@@ -155,7 +157,7 @@ Pass the `threadId` and the message below to the `mcp__codex__codex-reply` tool.
 Since Codex retains previous context, there is no need to resend the original content.
 
 ```text
-Previous: status={PREV_STATUS}, issues={PREV_ISSUES_SUMMARY}. Complete remaining work or fix issues. Verify all changes. Stay concise (summary ≤100 chars, max 3 issues, no approach/verification/next_steps).
+Previous: status={PREV_STATUS}, issues={PREV_ISSUES_SUMMARY}. Re-read all modified files to verify current state. Complete remaining work or fix issues. Stay concise (summary ≤100 chars, max 3 issues, no approach/verification/next_steps).
 JSON only, same schema, iteration={ITERATION}.
 ```
 

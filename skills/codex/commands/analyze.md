@@ -56,38 +56,34 @@ Do not proceed to any subsequent steps.
 
 ### Step 2: Determine Input
 
-Determine the analysis target through the following 3-step cascade.
+Determine the analysis target. **Collect file paths only** — do NOT read file content.
+Codex will access files directly via the `cwd` parameter.
 
-#### Mode A: Explicit Content
+#### Mode A: Explicit Target
 
-If the user explicitly provides file paths, directories, or text blocks, collect that content as `ANALYSIS_CONTENT`.
+If the user explicitly provides file paths, directories, or text blocks:
 
-- File path: Read the content using the Read tool
-- Directory: Collect file list with Glob, then Read key files
-- Text block: Use as-is
+- File path → Record the path as-is (do NOT Read the content)
+- Directory → Record the directory path
+- Text block → Use as-is (embed in prompt; this is the only case where content is embedded)
 
-Set `CONTENT_TYPE` to `"explicit"`.
+Store paths in `TARGET_PATHS` (newline-separated list).
 
 #### Mode B: Project Structure (Default Mode)
 
-If no explicit content is provided, collect the project structure as `ANALYSIS_CONTENT`.
+If no explicit target is provided, identify key project paths via Glob:
 
-Items to collect:
-- File structure (via equivalent commands like `find`, `ls`, etc.)
-- Key file contents (README, config files, entry points)
-- Key module samples needed to understand the analysis target
+- Relevant directories and files
+- Entry points (README, config files, main modules)
 
-Set `CONTENT_TYPE` to `"project"`.
+Store paths in `TARGET_PATHS`.
 
 #### Mode C: Conversation Context Fallback
 
 If neither Mode A nor B yields sufficient input, infer the analysis target from the current conversation context.
 If inference is not possible, ask the user to specify the analysis target and stop.
 
-**Truncation**: If content exceeds `ANALYZE_MAX_CONTENT_LINES` (default: 500),
-use only the first N lines and append `[... truncated ...]`.
-
-**User output**: One-line summary of the determined input (e.g., "Analyzing: `src/auth/` — 12 files, explicit content").
+**User output**: One-line summary (e.g., "Analyzing: `modules/claude/files/CLAUDE.md`").
 
 ### Step 3: Generate Session ID and Prepare Output Directory
 
@@ -111,7 +107,7 @@ Use the Read tool to read `${CLAUDE_PLUGIN_ROOT}/agents/codex-analyze-agents.md`
 
 #### 4b. Compose Prompt Parameters
 
-Compose three separate parameters to keep the MCP tool call concise in the UI.
+**Key principle**: Do NOT embed file content in the prompt. Pass file paths and let Codex read them directly.
 
 **`developer-instructions`**: Set to the `{AGENT_PERSONA}` content read in Step 4a.
 
@@ -119,45 +115,32 @@ Compose three separate parameters to keep the MCP tool call concise in the UI.
 
 ```text
 Deep analysis. Produce structured, actionable JSON insights.
+IMPORTANT: Read the specified files FIRST. Cite evidence from actual file content. Never answer without reading.
 Examine content thoroughly. Identify patterns, root causes, issues. Quantify findings. Prioritize by severity.
 CONCISENESS: summary ≤100 chars. Max 5 findings (no category/description). title ≤50, evidence ≤80, recommendation ≤80 chars. Max 5 metrics. No scope/recommendations fields.
 JSON only, no fences: {"status":"complete|partial","summary":"...","findings":[{"severity":"critical|major|minor|info","title":"...","evidence":"...","recommendation":"..."}],"metrics":{},"iteration":{ITERATION}}
 ```
 
-**`prompt`**: Compose from `{USER_REQUEST}` and `{CONTENT_SECTION}` only.
-
-When `CONTENT_TYPE` is `"explicit"`, compose `{CONTENT_SECTION}` as:
-
-````text
-## Analysis Target
-```
-{ANALYSIS_CONTENT}
-```
-````
-
-When `CONTENT_TYPE` is `"project"`, compose `{CONTENT_SECTION}` as:
-
-````text
-## Project Structure
-```
-{ANALYSIS_CONTENT}
-```
-````
-
-The prompt string:
+**`prompt`**: Compose from `{USER_REQUEST}` and `{TARGET_PATHS}` only (NOT file content):
 
 ```text
 {USER_REQUEST}
 
-{CONTENT_SECTION}
+## Target Files
+{TARGET_PATHS}
 ```
+
+If the input is a text block (Mode A text block only), embed the text directly in the prompt instead of file paths.
 
 #### 4c. Codex MCP Invocation
 
-Call the `mcp__codex__codex` tool with three parameters:
-- `prompt`: The task-specific prompt composed above (user request + content only)
+Call the `mcp__codex__codex` tool with the following parameters:
+- `prompt`: The task-specific prompt (user request + file paths only — NOT file content)
 - `developer-instructions`: The agent persona from Step 4a
 - `base-instructions`: The static instructions and output schema from Step 4b
+- `cwd`: Current working directory (absolute path from `$PWD`)
+- `sandbox`: `"read-only"`
+- `approval-policy`: `"never"`
 
 Save the `threadId` from the response and parse the JSON result from the response text.
 
@@ -218,7 +201,6 @@ Minor or info-level findings should be mentioned as a count only (e.g., "3 minor
 | Environment Variable        | Default | Description              |
 | --------------------------- | ------- | ------------------------ |
 | `ANALYZE_MAX_ITER`          | 3       | Maximum iteration count  |
-| `ANALYZE_MAX_CONTENT_LINES` | 500     | Maximum content lines    |
 
 ## Notes
 
