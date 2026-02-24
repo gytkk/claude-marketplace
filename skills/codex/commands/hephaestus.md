@@ -39,7 +39,9 @@ Most steps are internal and should NOT produce user-facing output. Only the foll
 | 1    | Error only | Show only if codex CLI is not installed |
 | 2    | Brief     | One-line summary of gathered context (e.g., "Context: 8 files in `src/auth/`") |
 | 3    | Brief     | One-line notification that execution is starting (e.g., "Running Codex Hephaestus...") |
-| 4–7  | Silent    | Do not show anything to the user |
+| 4    | Silent    | Do not show anything to the user |
+| 5    | Brief     | One-line progress per iteration (e.g., "Iteration 2/3: fixing 1 major issue...") |
+| 6–7  | Silent    | Do not show anything to the user |
 | 8    | Full      | Final result report with follow-up actions |
 
 ### Step 1: Prerequisites Check
@@ -176,6 +178,8 @@ Examine the `status` and `issues` values.
 - Iteration count has reached `HEPHAESTUS_MAX_ITER` (default: 3)
 
 **Continue condition**: If stop conditions are not met, request refinement via `mcp__codex__codex-reply`.
+
+**User output**: One-line progress per iteration (e.g., "Iteration 2/3: status partial, fixing 1 major issue...").
 
 #### Refinement Message Template
 
