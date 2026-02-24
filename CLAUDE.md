@@ -72,6 +72,14 @@ Conventional Commits: `feat:`, `fix:`, `refactor:`, `docs:`, `chore:`. Use `feat
 
 ### Version Management
 
+**Every change to a plugin's commands, agents, references, or configuration MUST include a version bump.**
+Without a version bump, the marketplace cache will not update and changes will not take effect for users.
+
 Plugin versions are tracked in two places that must stay in sync:
 - `skills/codex/.claude-plugin/plugin.json` → authoritative version
-- `.claude-plugin/marketplace.json` → registry version (may lag behind)
+- `.claude-plugin/marketplace.json` → registry version
+
+When bumping versions, update **both files** in the same commit. Use semver:
+- **patch** (e.g., 2.2.0 → 2.2.1): bug fixes, wording tweaks
+- **minor** (e.g., 2.2.0 → 2.3.0): new features, visibility changes, schema additions
+- **major** (e.g., 2.3.0 → 3.0.0): breaking changes to output schema or command interface
