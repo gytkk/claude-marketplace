@@ -109,11 +109,24 @@ Remember the `SESSION_ID` value for use in all subsequent file paths.
 
 Use the Read tool to read `${CLAUDE_PLUGIN_ROOT}/agents/codex-analyze-agents.md` and capture the `AGENT_PERSONA` content.
 
-#### 4b. Compose Prompt
+#### 4b. Compose Prompt Parameters
 
-Substitute `{USER_REQUEST}`, `{CONTENT_SECTION}`, `{ITERATION}`, and `{AGENT_PERSONA}` in the template below to compose the prompt string.
+Compose three separate parameters to keep the MCP tool call concise in the UI.
 
-**When `CONTENT_TYPE` is `"explicit"`**, compose `{CONTENT_SECTION}` as:
+**`developer-instructions`**: Set to the `{AGENT_PERSONA}` content read in Step 4a.
+
+**`base-instructions`**: Use the following static template (substitute `{ITERATION}` only):
+
+```text
+Deep analysis. Produce structured, actionable JSON insights.
+Examine content thoroughly. Identify patterns, root causes, issues. Quantify findings. Prioritize by severity.
+CONCISENESS: summary ≤100 chars. Max 5 findings (no category/description). title ≤50, evidence ≤80, recommendation ≤80 chars. Max 5 metrics. No scope/recommendations fields.
+JSON only, no fences: {"status":"complete|partial","summary":"...","findings":[{"severity":"critical|major|minor|info","title":"...","evidence":"...","recommendation":"..."}],"metrics":{},"iteration":{ITERATION}}
+```
+
+**`prompt`**: Compose from `{USER_REQUEST}` and `{CONTENT_SECTION}` only.
+
+When `CONTENT_TYPE` is `"explicit"`, compose `{CONTENT_SECTION}` as:
 
 ````text
 ## Analysis Target
@@ -122,7 +135,7 @@ Substitute `{USER_REQUEST}`, `{CONTENT_SECTION}`, `{ITERATION}`, and `{AGENT_PER
 ```
 ````
 
-**When `CONTENT_TYPE` is `"project"`**, compose `{CONTENT_SECTION}` as:
+When `CONTENT_TYPE` is `"project"`, compose `{CONTENT_SECTION}` as:
 
 ````text
 ## Project Structure
@@ -131,62 +144,20 @@ Substitute `{USER_REQUEST}`, `{CONTENT_SECTION}`, `{ITERATION}`, and `{AGENT_PER
 ```
 ````
 
-**Initial analysis prompt template**:
+The prompt string:
 
 ```text
-{AGENT_PERSONA}
-
----
-
-You are a systematic, evidence-based analyst. Your task is to perform a deep
-analysis of the provided content and produce structured, actionable insights.
-
-## Analysis Request
 {USER_REQUEST}
 
 {CONTENT_SECTION}
-
-## Instructions
-1. Thoroughly examine the provided content.
-2. Identify patterns, issues, and opportunities across all relevant dimensions.
-3. For code: check architecture, patterns, complexity, dependencies, quality, security, performance.
-4. For logs: check patterns, anomalies, error frequency, correlations.
-5. For any content: identify root causes, not just symptoms.
-6. Quantify findings where possible (counts, percentages, complexity scores).
-7. Prioritize findings by severity and impact.
-8. Provide actionable, specific recommendations with estimated effort.
-
-## Output Requirements
-
-CONCISENESS RULES (CRITICAL — follow strictly):
-- summary: ONE sentence, max 100 characters
-- Do NOT include scope or top-level recommendations fields
-- findings: max 5 items, title max 50 chars, evidence max 80 chars, recommendation max 80 chars
-- Do NOT include category or description in findings
-- metrics: max 5 key-value pairs
-
-Respond with ONLY valid JSON:
-{
-  "status": "complete" | "partial",
-  "summary": "<one sentence, max 100 chars>",
-  "findings": [
-    {
-      "severity": "critical" | "major" | "minor" | "info",
-      "title": "<max 50 chars>",
-      "evidence": "<file:line or data, max 80 chars>",
-      "recommendation": "<max 80 chars>"
-    }
-  ],
-  "metrics": {},
-  "iteration": {ITERATION}
-}
-
-Every finding must reference specific evidence. Output ONLY the JSON, no fences.
 ```
 
 #### 4c. Codex MCP Invocation
 
-Call the `mcp__codex__codex` tool, passing the composed prompt as the `prompt` parameter.
+Call the `mcp__codex__codex` tool with three parameters:
+- `prompt`: The task-specific prompt composed above (user request + content only)
+- `developer-instructions`: The agent persona from Step 4a
+- `base-instructions`: The static instructions and output schema from Step 4b
 
 Save the `threadId` from the response and parse the JSON result from the response text.
 

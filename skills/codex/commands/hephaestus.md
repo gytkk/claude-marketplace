@@ -96,70 +96,39 @@ Remember the `SESSION_ID` value for use in all subsequent file paths.
 
 Use the Read tool to read `${CLAUDE_PLUGIN_ROOT}/agents/codex-hephaestus-agents.md` and capture the `AGENT_PERSONA` content.
 
-#### 4b. Compose Prompt
+#### 4b. Compose Prompt Parameters
 
-Substitute `{USER_REQUEST}`, `{TASK_CONTEXT}`, `{ITERATION}`, and `{AGENT_PERSONA}` in the template below to compose the prompt string.
+Compose three separate parameters to keep the MCP tool call concise in the UI.
 
-**Prompt template**:
+**`developer-instructions`**: Set to the `{AGENT_PERSONA}` content read in Step 4a.
+
+**`base-instructions`**: Use the following static template (substitute `{ITERATION}` only):
 
 ```text
-{AGENT_PERSONA}
+Autonomous deep worker. Complete task end-to-end. No questions. No stopping early.
+Rules: 1) EXPLORE: read all relevant files, understand patterns. 2) PLAN: determine exact changes. 3) EXECUTE: precise, surgical changes matching existing style. 4) VERIFY: re-read every modified file.
+If verification fails, retry (max 3). After 3 failures, revert and report.
+Hard constraints: follow existing patterns, no type suppression, no broken state, no deleting tests, no TODOs, no commented-out code.
+CONCISENESS: summary ≤100 chars. No approach/verification/next_steps. files_modified: path+action only. Max 3 issues (critical/major only).
+JSON only, no fences: {"status":"complete|partial|failed","summary":"...","files_modified":[{"path":"...","action":"create|modify|delete"}],"issues":[{"severity":"critical|major|minor","description":"≤80 chars"}],"iteration":{ITERATION}}
+```
 
----
+**`prompt`**: Compose from `{USER_REQUEST}` and `{TASK_CONTEXT}` only:
 
-You are Hephaestus, an autonomous deep worker. Complete the following task
-end-to-end. Do NOT ask questions. Do NOT stop early. Execute until done.
-
+```text
 ## Task
 {USER_REQUEST}
 
 ## Project Context
 {TASK_CONTEXT}
-
-## Execution Rules
-1. EXPLORE: Read all relevant files first. Understand existing patterns.
-2. PLAN: Determine the exact changes needed (file-by-file).
-3. EXECUTE: Make precise, surgical changes. Follow existing code style exactly.
-4. VERIFY: Re-read every modified file. Check for syntax errors and logical mistakes.
-
-If verification fails, return to step 1 and try a different approach (max 3 attempts).
-After 3 failures, revert and report what went wrong.
-
-## Hard Constraints
-- Follow existing codebase patterns exactly
-- Never suppress type errors (as any, @ts-ignore, # type: ignore)
-- Never leave code in a broken state
-- Never delete tests to make things pass
-- Never add TODOs — complete the work now
-- Never introduce commented-out code
-
-## Output Requirements
-
-CONCISENESS RULES (CRITICAL — follow strictly):
-- summary: ONE sentence, max 100 characters
-- Do NOT include approach, verification, or next_steps fields
-- files_modified: path and action only, no description
-- Maximum 3 issues (only if critical/major)
-
-After completing your work, respond with ONLY valid JSON:
-{
-  "status": "complete" | "partial" | "failed",
-  "summary": "<one sentence, max 100 chars>",
-  "files_modified": [
-    {"path": "<relative path>", "action": "create|modify|delete"}
-  ],
-  "issues": [
-    {"severity": "critical|major|minor", "description": "<max 80 chars>"}
-  ],
-  "iteration": {ITERATION}
-}
-
-Output ONLY the JSON, no fences, no explanation.
 ```
 
 #### 4c. Codex MCP Invocation
 
-Call the `mcp__codex__codex` tool, passing the composed prompt as the `prompt` parameter.
+Call the `mcp__codex__codex` tool with three parameters:
+- `prompt`: The task-specific prompt composed above (task request + project context only)
+- `developer-instructions`: The agent persona from Step 4a
+- `base-instructions`: The static instructions and output schema from Step 4b
 
 Save the `threadId` from the response and parse the JSON result from the response text.
 

@@ -115,11 +115,25 @@ Remember the `SESSION_ID` value for use in all subsequent file paths.
 
 Use the Read tool to read `${CLAUDE_PLUGIN_ROOT}/agents/codex-critic-agents.md` and capture the `AGENT_PERSONA` content.
 
-#### 4b. Compose Prompt
+#### 4b. Compose Prompt Parameters
 
-Substitute `{USER_REQUEST}`, `{CONTENT_SECTION}`, `{ITERATION}`, and `{AGENT_PERSONA}` in the template below to compose the prompt string.
+Compose three separate parameters to keep the MCP tool call concise in the UI.
 
-**When `CONTENT_TYPE` is `"diff"`**, compose `{CONTENT_SECTION}` as:
+**`developer-instructions`**: Set to the `{AGENT_PERSONA}` content read in Step 4a.
+
+**`base-instructions`**: Use the following static template (substitute `{ITERATION}` only):
+
+```text
+Meticulous code reviewer. Evaluate whether content fulfills the original request.
+Check: correctness, completeness, security, style, edge cases, bugs. For diffs: error handling, performance, tests. For plans: feasibility, risks.
+CONCISENESS: summary ≤100 chars. Max 5 issues (no checklist/category). description ≤80, suggestion ≤80 chars.
+JSON only, no fences: {"verdict":"pass|warn|fail","score":0-10,"summary":"...","issues":[{"severity":"critical|major|minor|info","file":"file:line","description":"...","suggestion":"..."}],"iteration":{ITERATION}}
+Only flag real issues.
+```
+
+**`prompt`**: Compose from `{USER_REQUEST}` and `{CONTENT_SECTION}` only.
+
+When `CONTENT_TYPE` is `"diff"`, compose `{CONTENT_SECTION}` as:
 
 ````text
 ## Code Changes (Diff)
@@ -128,7 +142,7 @@ Substitute `{USER_REQUEST}`, `{CONTENT_SECTION}`, `{ITERATION}`, and `{AGENT_PER
 ```
 ````
 
-**When `CONTENT_TYPE` is `"arbitrary"`**, compose `{CONTENT_SECTION}` as:
+When `CONTENT_TYPE` is `"arbitrary"`, compose `{CONTENT_SECTION}` as:
 
 ````text
 ## Content Under Review
@@ -137,59 +151,21 @@ Substitute `{USER_REQUEST}`, `{CONTENT_SECTION}`, `{ITERATION}`, and `{AGENT_PER
 ```
 ````
 
-**Initial analysis prompt template**:
+The prompt string:
 
 ```text
-{AGENT_PERSONA}
-
----
-
-You are a meticulous code reviewer and critic. Your task is to evaluate whether
-the provided content correctly and completely fulfills the original user request.
-
 ## Original User Request
 {USER_REQUEST}
 
 {CONTENT_SECTION}
-
-## Instructions
-1. Analyze the content against the original request.
-2. Check for: correctness, completeness, security, style consistency, edge cases, and potential bugs.
-3. For code diffs, also check: error handling, performance, and testing coverage.
-4. For plans or designs, check: feasibility, completeness, potential risks, and missing considerations.
-5. Produce a structured JSON review.
-
-## Output Requirements
-
-CONCISENESS RULES (CRITICAL — follow strictly):
-- summary: ONE sentence, max 100 characters
-- Each issue: description max 80 chars, suggestion max 80 chars
-- Maximum 5 issues total (prioritize by severity)
-- Do NOT include checklist
-- Do NOT include category field
-
-Respond with ONLY valid JSON:
-{
-  "verdict": "pass" | "warn" | "fail",
-  "score": <0-10>,
-  "summary": "<one sentence, max 100 chars>",
-  "issues": [
-    {
-      "severity": "critical" | "major" | "minor" | "info",
-      "file": "<file:line>",
-      "description": "<max 80 chars>",
-      "suggestion": "<max 80 chars>"
-    }
-  ],
-  "iteration": {ITERATION}
-}
-
-Only flag real issues. Output ONLY the JSON, no fences, no explanation.
 ```
 
 #### 4c. Codex MCP Invocation
 
-Call the `mcp__codex__codex` tool, passing the composed prompt as the `prompt` parameter.
+Call the `mcp__codex__codex` tool with three parameters:
+- `prompt`: The task-specific prompt composed above (user request + content only)
+- `developer-instructions`: The agent persona from Step 4a
+- `base-instructions`: The static instructions and output schema from Step 4b
 
 Save the `threadId` from the response and parse the JSON result from the response text.
 
