@@ -1,8 +1,8 @@
 ---
 description: >-
-  Codex 기반 범용 심층 분석. 코드, 로그, 에러, 성능 등 임의의 대상을
-  분석하여 구조화된 인사이트를 제공합니다.
-argument-hint: "<분석 대상 설명>"
+  Deep analysis powered by Codex. Analyzes code, logs, errors, performance,
+  and any target to provide structured insights.
+argument-hint: "<description of analysis target>"
 allowed-tools:
   - Bash
   - Read
@@ -16,66 +16,66 @@ allowed-tools:
 
 # Codex Analyze
 
-Codex MCP 도구를 사용하여 코드, 로그, 에러, 성능 등 임의의 대상을 심층 분석하고
-구조화된 인사이트를 제공합니다.
+Performs deep analysis of code, logs, errors, performance, and any target using
+Codex MCP tools, delivering structured and actionable insights.
 
 ## Invocation
 
 ```text
-/codex:analyze <분석 대상 설명>
+/codex:analyze <description of analysis target>
 ```
 
 ## Execution Steps
 
-아래 단계를 순서대로 실행한다. 각 단계에서 에러가 발생하면 사용자에게 보고하고 중단한다.
+Execute the steps below in order. If an error occurs at any step, report it to the user and stop.
 
-### Step 1: 전제 조건 확인
+### Step 1: Prerequisites Check
 
-codex CLI가 설치되어 있는지 Bash로 확인한다.
+Verify that the codex CLI is installed via Bash.
 
 ```bash
 command -v codex >/dev/null 2>&1 || { echo "ERROR: codex CLI not found. Install: npm install -g @openai/codex"; exit 1; }
 ```
 
-이 명령이 실패(exit 1)하면 즉시 사용자에게 설치 안내를 보고하고 **스킬 실행을 중단**한다.
-이후 단계를 절대 진행하지 않는다.
+If this command fails (exit 1), immediately report the installation instructions to the user and **stop skill execution**.
+Do not proceed to any subsequent steps.
 
-### Step 2: 입력 결정
+### Step 2: Determine Input
 
-다음 3단계 cascade로 분석 대상을 결정한다.
+Determine the analysis target through the following 3-step cascade.
 
-#### 모드 A: 명시적 콘텐츠
+#### Mode A: Explicit Content
 
-사용자가 파일 경로, 디렉토리, 텍스트 블록을 명시적으로 제공하면 해당 내용을 수집해 `ANALYSIS_CONTENT`로 사용한다.
+If the user explicitly provides file paths, directories, or text blocks, collect that content as `ANALYSIS_CONTENT`.
 
-- 파일 경로: Read 도구로 내용 읽기
-- 디렉토리: Glob으로 파일 목록 수집 후 핵심 파일 Read
-- 텍스트 블록: 그대로 사용
+- File path: Read the content using the Read tool
+- Directory: Collect file list with Glob, then Read key files
+- Text block: Use as-is
 
-`CONTENT_TYPE`을 `"explicit"`로 설정한다.
+Set `CONTENT_TYPE` to `"explicit"`.
 
-#### 모드 B: 프로젝트 구조 (기본 모드)
+#### Mode B: Project Structure (Default Mode)
 
-명시적 콘텐츠가 없으면 프로젝트 구조를 수집하여 `ANALYSIS_CONTENT`로 사용한다.
+If no explicit content is provided, collect the project structure as `ANALYSIS_CONTENT`.
 
-수집 항목:
-- 파일 구조(예: `find`, `ls` 등 동등 명령)
-- 핵심 파일 내용(README, 설정 파일, 엔트리 포인트)
-- 분석 대상 파악에 필요한 주요 모듈 샘플
+Items to collect:
+- File structure (via equivalent commands like `find`, `ls`, etc.)
+- Key file contents (README, config files, entry points)
+- Key module samples needed to understand the analysis target
 
-`CONTENT_TYPE`을 `"project"`로 설정한다.
+Set `CONTENT_TYPE` to `"project"`.
 
-#### 모드 C: 대화 컨텍스트 폴백
+#### Mode C: Conversation Context Fallback
 
-모드 A, B 모두 충분한 입력이 없으면 현재 대화 컨텍스트에서 분석 대상을 추론해 사용한다.
-추론할 수 없으면 사용자에게 분석 대상을 명시해달라고 보고하고 중단한다.
+If neither Mode A nor B yields sufficient input, infer the analysis target from the current conversation context.
+If inference is not possible, ask the user to specify the analysis target and stop.
 
-**Truncation**: 환경변수 `ANALYZE_MAX_CONTENT_LINES` (기본값: 1000) 초과 시
-처음 N줄만 사용하고 `[... truncated ...]` 표시를 추가한다.
+**Truncation**: If content exceeds `ANALYZE_MAX_CONTENT_LINES` (default: 1000),
+use only the first N lines and append `[... truncated ...]`.
 
-### Step 3: 세션 ID 생성 및 출력 디렉토리 준비
+### Step 3: Generate Session ID and Prepare Output Directory
 
-세션별 고유 ID를 생성하고 이후 모든 출력 파일명에 사용한다.
+Generate a unique session ID and use it for all subsequent output filenames.
 
 ```bash
 SESSION_ID=$(date +%Y%m%d-%H%M%S)
@@ -83,19 +83,19 @@ mkdir -p ~/.ai
 echo "Session ID: $SESSION_ID"
 ```
 
-`SESSION_ID` 값을 기억하여 이후 모든 파일 경로에 사용한다.
+Remember the `SESSION_ID` value for use in all subsequent file paths.
 
-### Step 4: 초기 분석 실행 (Iteration 1)
+### Step 4: Initial Analysis (Iteration 1)
 
-#### 4a. Agent persona 읽기
+#### 4a. Read Agent Persona
 
-Read 도구로 `${CLAUDE_PLUGIN_ROOT}/agents/codex-analyze-agents.md`를 읽어 `AGENT_PERSONA` 내용을 확보한다.
+Use the Read tool to read `${CLAUDE_PLUGIN_ROOT}/agents/codex-analyze-agents.md` and capture the `AGENT_PERSONA` content.
 
-#### 4b. 프롬프트 구성
+#### 4b. Compose Prompt
 
-아래 템플릿에서 `{USER_REQUEST}`, `{CONTENT_SECTION}`, `{ITERATION}`, `{AGENT_PERSONA}`를 치환하여 프롬프트 문자열을 구성한다.
+Substitute `{USER_REQUEST}`, `{CONTENT_SECTION}`, `{ITERATION}`, and `{AGENT_PERSONA}` in the template below to compose the prompt string.
 
-**`CONTENT_TYPE`이 `"explicit"`인 경우** `{CONTENT_SECTION}`을 다음으로 구성한다:
+**When `CONTENT_TYPE` is `"explicit"`**, compose `{CONTENT_SECTION}` as:
 
 ````text
 ## Analysis Target
@@ -104,7 +104,7 @@ Read 도구로 `${CLAUDE_PLUGIN_ROOT}/agents/codex-analyze-agents.md`를 읽어 
 ```
 ````
 
-**`CONTENT_TYPE`이 `"project"`인 경우** `{CONTENT_SECTION}`을 다음으로 구성한다:
+**When `CONTENT_TYPE` is `"project"`**, compose `{CONTENT_SECTION}` as:
 
 ````text
 ## Project Structure
@@ -113,7 +113,7 @@ Read 도구로 `${CLAUDE_PLUGIN_ROOT}/agents/codex-analyze-agents.md`를 읽어 
 ```
 ````
 
-**초기 분석 프롬프트 템플릿**:
+**Initial analysis prompt template**:
 
 ```text
 {AGENT_PERSONA}
@@ -173,31 +173,31 @@ Be thorough and evidence-based. Every finding must reference specific files, lin
 Output ONLY the JSON object, no markdown fences, no explanation before or after.
 ```
 
-#### 4c. Codex MCP 호출
+#### 4c. Codex MCP Invocation
 
-`mcp__codex__codex` 도구를 호출하여 구성한 프롬프트를 `prompt` 파라미터로 전달한다.
+Call the `mcp__codex__codex` tool, passing the composed prompt as the `prompt` parameter.
 
-응답에서 `threadId`를 저장하고, 응답 텍스트에서 JSON 결과를 파싱한다.
+Save the `threadId` from the response and parse the JSON result from the response text.
 
-#### 4d. 결과 검증
+#### 4d. Result Validation
 
-JSON이 유효한지 확인한다. 유효하지 않으면 에러를 보고하고 중단한다.
+Verify that the JSON is valid. If invalid, report the error and stop.
 
-`status`, `findings` 값을 파악한다.
+Examine the `status` and `findings` values.
 
-### Step 5: 반복 개선 루프
+### Step 5: Iterative Refinement Loop
 
-**중단 조건**: 다음 중 하나라도 충족되면 반복을 중단하고 Step 6으로 진행한다:
+**Stop conditions**: If any of the following are met, stop iterating and proceed to Step 6:
 
-- `status == "complete"` 이고 `findings`에 critical 이슈가 없음
-- 반복 횟수가 `ANALYZE_MAX_ITER` (기본값: 3)에 도달
+- `status == "complete"` and no critical issues in `findings`
+- Iteration count has reached `ANALYZE_MAX_ITER` (default: 3)
 
-**계속 조건**: 중단 조건이 충족되지 않으면 `mcp__codex__codex-reply`로 개선을 요청한다.
+**Continue condition**: If stop conditions are not met, request refinement via `mcp__codex__codex-reply`.
 
-#### 개선 메시지 템플릿
+#### Refinement Message Template
 
-`mcp__codex__codex-reply` 도구에 `threadId`와 아래 `message`를 전달한다.
-Codex가 이전 컨텍스트를 기억하므로 원본 콘텐츠를 다시 보낼 필요가 없다.
+Pass the `threadId` and the message below to the `mcp__codex__codex-reply` tool.
+Since Codex retains previous context, there is no need to resend the original content.
 
 ```text
 Continue refining your analysis from iteration {PREV_ITERATION}.
@@ -214,13 +214,13 @@ Set "iteration" to {ITERATION}.
 Output ONLY the JSON object, no markdown fences, no explanation before or after.
 ```
 
-응답 텍스트에서 JSON 결과를 파싱하고, `status`와 `findings`를 재확인한다.
+Parse the JSON result from the response text and re-check `status` and `findings`.
 
-**에러 폴백**: MCP 호출이 실패하면 이전 iteration의 결과를 최종 결과로 사용한다.
+**Error fallback**: If the MCP call fails, use the previous iteration's result as the final result.
 
-### Step 6: 최종 결과 저장
+### Step 6: Save Final Result
 
-최종 JSON 결과를 `~/.ai/analyze-{SESSION_ID}-result.json`에 저장한다:
+Save the final JSON result to `~/.ai/analyze-{SESSION_ID}-result.json`:
 
 ```bash
 cat > ~/.ai/analyze-${SESSION_ID}-result.json << 'RESULT_EOF'
@@ -228,49 +228,28 @@ cat > ~/.ai/analyze-${SESSION_ID}-result.json << 'RESULT_EOF'
 RESULT_EOF
 ```
 
-### Step 7: 결과 보고
+### Step 7: Report Results
 
-JSON 결과를 다음 형식으로 정리하여 사용자에게 보고한다:
+Present the JSON result to the user in a concise format. Only show sections that contain meaningful data — omit empty tables or sections.
 
-```text
-## Codex Analyze 결과
+Keep the output minimal: summary, critical/major findings, and top recommendations.
+Minor or info-level findings should be mentioned as a count only (e.g., "3 minor findings omitted").
 
-**Status**: {status} | **Scope**: {scope} | **Iterations**: {iteration}
+### Step 8: Suggest Follow-up Actions
 
-### Summary
-{summary}
-
-### Findings ({count}건)
-| Severity | Category | Title | Description | Recommendation |
-|----------|----------|-------|-------------|----------------|
-| ... | ... | ... | ... | ... |
-
-### Metrics
-| Metric | Value |
-|--------|-------|
-| ... | ... |
-
-### Recommendations ({count}건)
-| Priority | Title | Effort | Description |
-|----------|-------|--------|-------------|
-| ... | ... | ... | ... |
-```
-
-### Step 8: 후속 조치 제안
-
-- critical 이슈가 있으면: 즉시 대응을 위한 우선순위 액션 플랜을 제안한다.
-- recommendations가 있으면: 우선순위/노력도 기반 구현 순서를 제안한다.
-- 그 외에는: 분석 완료를 보고하고 종료한다.
+- If critical issues exist: propose a prioritized action plan for immediate response.
+- If recommendations exist: suggest an implementation order based on priority and effort.
+- Otherwise: report analysis complete and finish.
 
 ## Configuration
 
-| 환경변수                    | 기본값         | 설명                      |
-| --------------------------- | -------------- | ------------------------- |
-| `ANALYZE_MAX_ITER`          | 3              | 최대 반복 횟수            |
-| `ANALYZE_MAX_CONTENT_LINES` | 1000           | 콘텐츠 최대 줄 수         |
+| Environment Variable        | Default | Description              |
+| --------------------------- | ------- | ------------------------ |
+| `ANALYZE_MAX_ITER`          | 3       | Maximum iteration count  |
+| `ANALYZE_MAX_CONTENT_LINES` | 1000    | Maximum content lines    |
 
 ## Notes
 
-- Codex MCP 도구를 통해 분석을 수행하며, thread 기반 대화로 반복 개선이 가능합니다.
-- 결과는 `~/.ai/analyze-{SESSION_ID}-result.json`에 저장됩니다.
-- `~/.ai/` 디렉토리에 런타임 출력물을 저장합니다.
+- Analysis is performed via Codex MCP tools, with thread-based conversations enabling iterative refinement.
+- Results are saved to `~/.ai/analyze-{SESSION_ID}-result.json`.
+- Runtime outputs are stored in the `~/.ai/` directory.
