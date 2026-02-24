@@ -84,7 +84,7 @@ git diff HEAD~1 HEAD 2>/dev/null
 
 If a diff exists, set `CONTENT_TYPE` to `"diff"`.
 
-**Truncation**: If content exceeds `CRITIC_MAX_DIFF_LINES` (default: 500),
+**Truncation**: If content exceeds `CRITIC_MAX_DIFF_LINES` (default: 300),
 use only the first N lines and append `[... truncated ...]`.
 
 #### Mode C: Conversation Context Fallback
@@ -230,7 +230,7 @@ Proceed with fixes only after user approval.
 | Environment Variable    | Default | Description              |
 | ----------------------- | ------- | ------------------------ |
 | `CRITIC_MAX_ITER`       | 5       | Maximum iteration count  |
-| `CRITIC_MAX_DIFF_LINES` | 500     | Maximum diff lines       |
+| `CRITIC_MAX_DIFF_LINES` | 300     | Maximum diff lines       |
 
 ## Notes
 

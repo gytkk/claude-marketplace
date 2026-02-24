@@ -84,7 +84,7 @@ Set `CONTENT_TYPE` to `"project"`.
 If neither Mode A nor B yields sufficient input, infer the analysis target from the current conversation context.
 If inference is not possible, ask the user to specify the analysis target and stop.
 
-**Truncation**: If content exceeds `ANALYZE_MAX_CONTENT_LINES` (default: 1000),
+**Truncation**: If content exceeds `ANALYZE_MAX_CONTENT_LINES` (default: 500),
 use only the first N lines and append `[... truncated ...]`.
 
 **User output**: One-line summary of the determined input (e.g., "Analyzing: `src/auth/` — 12 files, explicit content").
@@ -218,7 +218,7 @@ Minor or info-level findings should be mentioned as a count only (e.g., "3 minor
 | Environment Variable        | Default | Description              |
 | --------------------------- | ------- | ------------------------ |
 | `ANALYZE_MAX_ITER`          | 3       | Maximum iteration count  |
-| `ANALYZE_MAX_CONTENT_LINES` | 1000    | Maximum content lines    |
+| `ANALYZE_MAX_CONTENT_LINES` | 500     | Maximum content lines    |
 
 ## Notes
 
