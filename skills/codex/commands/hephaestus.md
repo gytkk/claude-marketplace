@@ -40,7 +40,7 @@ Most steps are internal and should NOT produce user-facing output. Only the foll
 | 2    | Brief     | One-line summary of gathered context (e.g., "Context: 8 files in `src/auth/`") |
 | 3    | Brief     | One-line notification that execution is starting (e.g., "Running Codex Hephaestus...") |
 | 4    | Silent    | Do not show anything to the user |
-| 5    | Brief     | One-line progress per iteration (e.g., "Iteration 2/3: fixing 1 major issue...") |
+| 5    | Detailed  | Per-iteration progress report: status, summary, files modified, and issues |
 | 6–7  | Silent    | Do not show anything to the user |
 | 8    | Full      | Final result report with follow-up actions |
 
@@ -159,7 +159,25 @@ Examine the `status` and `issues` values.
 
 **Continue condition**: If stop conditions are not met, request refinement via `mcp__codex__codex-reply`.
 
-**User output**: One-line progress per iteration (e.g., "Iteration 2/3: status partial, fixing 1 major issue...").
+#### Intermediate Result Report
+
+After each iteration (including iteration 1 from Step 4), show the user an intermediate progress report:
+
+```text
+### Iteration {N}/{MAX}
+- **Status**: {status}
+- **Summary**: {summary}
+- **Files modified**: {files_modified as bullet list of path (action)}
+- **Issues**: {issues as bullet list of [severity] description, or "None"}
+```
+
+Also save each iteration result to a separate file:
+
+```bash
+cat > ~/.ai/hephaestus-${SESSION_ID}-iter${ITERATION}-result.json << 'ITER_EOF'
+{ITERATION_RESULT_JSON}
+ITER_EOF
+```
 
 #### Refinement Message Template
 
@@ -177,7 +195,8 @@ Parse the JSON result from the response text and re-check `status` and `issues`.
 
 ### Step 6: Save Final Result
 
-Save the final JSON result to `~/.ai/hephaestus-{SESSION_ID}-result.json`:
+Save the final JSON result to `~/.ai/hephaestus-{SESSION_ID}-result.json`.
+Note: intermediate iteration results were already saved in Step 5 as `~/.ai/hephaestus-{SESSION_ID}-iter{N}-result.json`.
 
 ```bash
 cat > ~/.ai/hephaestus-${SESSION_ID}-result.json << 'RESULT_EOF'
@@ -221,6 +240,7 @@ Proceed with fixes only after user approval.
 ## Notes
 
 - Tasks are performed via Codex MCP tools, with thread-based conversations enabling iterative refinement.
-- Results are saved to `~/.ai/hephaestus-{SESSION_ID}-result.json`.
+- Final result: `~/.ai/hephaestus-{SESSION_ID}-result.json`.
+- Intermediate results: `~/.ai/hephaestus-{SESSION_ID}-iter{N}-result.json` per iteration.
 - Runtime outputs are stored in the `~/.ai/` directory (does not pollute the project directory).
 - After Codex completion, Claude Code independently verifies changes (Step 7).
