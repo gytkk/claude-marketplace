@@ -29,6 +29,18 @@ structured feedback.
 
 Execute the steps below in order. If an error occurs at any step, report it to the user and stop.
 
+### User Visibility Rules
+
+Most steps are internal and should NOT produce user-facing output. Only the following should be shown to the user:
+
+| Step | Visibility | What to Show |
+|------|-----------|--------------|
+| 1    | Error only | Show only if codex CLI is not installed |
+| 2    | Brief     | One-line summary of determined input (e.g., "Reviewing: staged changes (42 lines)") |
+| 3    | Brief     | One-line notification that review is starting (e.g., "Running Codex Critic...") |
+| 4–6  | Silent    | Do not show anything to the user |
+| 7    | Full      | Final result report with follow-up actions |
+
 ### Step 1: Prerequisites Check
 
 Verify that the codex CLI is installed via Bash. If it fails, report the error message to the user and stop.
@@ -38,6 +50,8 @@ command -v codex >/dev/null 2>&1 || { echo "ERROR: codex CLI not found. Install:
 ```
 
 **Authentication**: Pre-authentication via `codex login` is required. Authentication failures are reported by the MCP tool itself.
+
+**User output**: None on success. On failure, show install instructions and stop.
 
 ### Step 2: Determine Input
 
@@ -79,6 +93,8 @@ If neither Mode A nor B yields content, infer the most recent work
 (code changes, plans, etc.) from the current conversation context.
 If inference is not possible, ask the user to specify the verification target and stop.
 
+**User output**: One-line summary of the determined input (e.g., "Reviewing: staged changes (42 lines)" or "Reviewing: `auth-plan.md`").
+
 ### Step 3: Generate Session ID and Prepare Output Directory
 
 Generate a unique session ID and use it for all subsequent output filenames.
@@ -90,6 +106,8 @@ echo "Session ID: $SESSION_ID"
 ```
 
 Remember the `SESSION_ID` value for use in all subsequent file paths.
+
+**User output**: One-line notification (e.g., "Running Codex Critic...").
 
 ### Step 4: Initial Analysis (Iteration 1)
 
@@ -227,7 +245,7 @@ cat > ~/.ai/critic-${SESSION_ID}-result.json << 'RESULT_EOF'
 RESULT_EOF
 ```
 
-### Step 7: Report Results
+### Step 7: Report Results and Follow-up
 
 Present the result to the user concisely. Only show sections with meaningful data — omit empty tables or sections.
 
@@ -235,7 +253,7 @@ Focus on: verdict, score, summary, and critical/major issues with suggestions.
 Minor or info-level issues should be mentioned as a count only (e.g., "2 minor issues omitted").
 Checklist items should only be shown if any failed.
 
-### Step 8: Suggest Follow-up Actions
+**Follow-up actions** (include inline at the end of the report):
 
 - `verdict` is `fail`: Propose a fix plan for each issue.
 - `verdict` is `warn`: Suggest whether to fix the major issues to the user.

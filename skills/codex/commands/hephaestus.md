@@ -30,6 +30,18 @@ completes exploration, planning, execution, and verification.
 
 Execute the steps below in order. If an error occurs at any step, report it to the user and stop.
 
+### User Visibility Rules
+
+Most steps are internal and should NOT produce user-facing output. Only the following should be shown to the user:
+
+| Step | Visibility | What to Show |
+|------|-----------|--------------|
+| 1    | Error only | Show only if codex CLI is not installed |
+| 2    | Brief     | One-line summary of gathered context (e.g., "Context: 8 files in `src/auth/`") |
+| 3    | Brief     | One-line notification that execution is starting (e.g., "Running Codex Hephaestus...") |
+| 4–7  | Silent    | Do not show anything to the user |
+| 8    | Full      | Final result report with follow-up actions |
+
 ### Step 1: Prerequisites Check
 
 Verify that the codex CLI is installed via Bash.
@@ -40,6 +52,8 @@ command -v codex >/dev/null 2>&1 || { echo "ERROR: codex CLI not found. Install:
 
 If this command fails (exit 1), immediately report the installation instructions to the user and **stop skill execution**.
 Do not proceed to any subsequent steps.
+
+**User output**: None on success. On failure, show install instructions and stop.
 
 ### Step 2: Gather Context
 
@@ -58,6 +72,8 @@ Collection criteria:
 
 Store collected context in the `TASK_CONTEXT` variable.
 
+**User output**: One-line summary of gathered context (e.g., "Context: 8 files in `src/auth/`, existing patterns collected").
+
 ### Step 3: Generate Session ID and Prepare Output Directory
 
 Generate a unique session ID and use it for all subsequent output filenames.
@@ -69,6 +85,8 @@ echo "Session ID: $SESSION_ID"
 ```
 
 Remember the `SESSION_ID` value for use in all subsequent file paths.
+
+**User output**: One-line notification (e.g., "Running Codex Hephaestus...").
 
 ### Step 4: Initial Execution (Iteration 1)
 
@@ -207,14 +225,14 @@ Claude Code independently verifies the work produced by Codex:
 
 If verification reveals problems, report them to the user.
 
-### Step 8: Report Results
+### Step 8: Report Results and Follow-up
 
 Present the result to the user concisely. Only show sections with meaningful data — omit empty tables or sections.
 
 Focus on: status, summary, files modified (as a brief list), and any unresolved issues.
 Verification details and next steps should only appear if they contain notable information.
 
-### Step 9: Suggest Follow-up Actions
+**Follow-up actions** (include inline at the end of the report):
 
 - `status` is `complete` with no issues: Show changes to the user and ask whether to commit.
 - `status` is `complete` but minor issues exist: Present the issue list and suggest whether to fix them.

@@ -29,6 +29,18 @@ Codex MCP tools, delivering structured and actionable insights.
 
 Execute the steps below in order. If an error occurs at any step, report it to the user and stop.
 
+### User Visibility Rules
+
+Most steps are internal and should NOT produce user-facing output. Only the following should be shown to the user:
+
+| Step | Visibility | What to Show |
+|------|-----------|--------------|
+| 1    | Error only | Show only if codex CLI is not installed |
+| 2    | Brief     | One-line summary of determined input (e.g., "Analyzing: `src/` directory structure") |
+| 3    | Brief     | One-line notification that analysis is starting (e.g., "Running Codex analysis...") |
+| 4–6  | Silent    | Do not show anything to the user |
+| 7    | Full      | Final result report with follow-up actions |
+
 ### Step 1: Prerequisites Check
 
 Verify that the codex CLI is installed via Bash.
@@ -39,6 +51,8 @@ command -v codex >/dev/null 2>&1 || { echo "ERROR: codex CLI not found. Install:
 
 If this command fails (exit 1), immediately report the installation instructions to the user and **stop skill execution**.
 Do not proceed to any subsequent steps.
+
+**User output**: None on success. On failure, show install instructions and stop.
 
 ### Step 2: Determine Input
 
@@ -73,6 +87,8 @@ If inference is not possible, ask the user to specify the analysis target and st
 **Truncation**: If content exceeds `ANALYZE_MAX_CONTENT_LINES` (default: 1000),
 use only the first N lines and append `[... truncated ...]`.
 
+**User output**: One-line summary of the determined input (e.g., "Analyzing: `src/auth/` — 12 files, explicit content").
+
 ### Step 3: Generate Session ID and Prepare Output Directory
 
 Generate a unique session ID and use it for all subsequent output filenames.
@@ -84,6 +100,8 @@ echo "Session ID: $SESSION_ID"
 ```
 
 Remember the `SESSION_ID` value for use in all subsequent file paths.
+
+**User output**: One-line notification (e.g., "Running Codex analysis...").
 
 ### Step 4: Initial Analysis (Iteration 1)
 
@@ -228,14 +246,14 @@ cat > ~/.ai/analyze-${SESSION_ID}-result.json << 'RESULT_EOF'
 RESULT_EOF
 ```
 
-### Step 7: Report Results
+### Step 7: Report Results and Follow-up
 
 Present the JSON result to the user in a concise format. Only show sections that contain meaningful data — omit empty tables or sections.
 
 Keep the output minimal: summary, critical/major findings, and top recommendations.
 Minor or info-level findings should be mentioned as a count only (e.g., "3 minor findings omitted").
 
-### Step 8: Suggest Follow-up Actions
+**Follow-up actions** (include inline at the end of the report):
 
 - If critical issues exist: propose a prioritized action plan for immediate response.
 - If recommendations exist: suggest an implementation order based on priority and effort.
