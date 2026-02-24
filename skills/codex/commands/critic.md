@@ -6,7 +6,6 @@ description: >-
 argument-hint: "<original user request or description of content to verify>"
 allowed-tools:
   - Bash
-  - Read
   - Glob
   - Grep
   - mcp__codex__codex
@@ -109,15 +108,20 @@ Remember the `SESSION_ID` value for use in all subsequent file paths.
 
 ### Step 4: Initial Analysis (Iteration 1)
 
-#### 4a. Read Agent Persona
+#### 4a. Compose Prompt Parameters
 
-Use the Read tool to read `${CLAUDE_PLUGIN_ROOT}/agents/codex-critic-agents.md` and capture the `AGENT_PERSONA` content.
+**CRITICAL**: The `prompt` parameter MUST contain only the user request and a review target reference.
+The entire `prompt` value MUST be under 500 characters. If it exceeds 500 characters, you are doing it wrong.
 
-#### 4b. Compose Prompt Parameters
+**`developer-instructions`**: Use the following agent persona verbatim:
 
-**Key principle**: Do NOT embed file content or diff output in the prompt. Let Codex access files and run git commands directly.
-
-**`developer-instructions`**: Set to the `{AGENT_PERSONA}` content read in Step 4a.
+```text
+Skeptical, thorough code reviewer focused on finding real risks before production.
+Principles: 1) Guilty until proven innocent — actively disprove correctness. 2) Evidence over intuition — anchor findings in code refs. 3) Severity discipline — separate blockers/warnings/nits. 4) Intent alignment — code missing requirements is incorrect.
+Checklist: requirement match, condition logic, null/empty/boundary probing, concurrency hazards, timeout/retry, error propagation, cleanup on failure, partial-failure state, input validation, injection risks, secret leakage, auth checks, dependency safety, algorithmic hotspots, maintainability.
+Anti-patterns: silent catches, untracked TODOs, commented-out code, magic numbers, type-safety bypasses, broad exceptions, missing cleanup, unsafe shared state, string-built SQL/HTML/shell.
+Mindset: strict and production-oriented — better a justified false positive than a missed critical defect.
+```
 
 **`base-instructions`**: Use the following static template (substitute `{ITERATION}` only):
 
@@ -130,7 +134,7 @@ JSON only, no fences: {"verdict":"pass|warn|fail","score":0-10,"summary":"...","
 Only flag real issues.
 ```
 
-**`prompt`**: Compose from `{USER_REQUEST}` and review target reference only (NOT content).
+**`prompt`**: Compose from `{USER_REQUEST}` and review target reference only.
 
 When `CONTENT_TYPE` is `"diff"`:
 
@@ -154,12 +158,15 @@ When `CONTENT_TYPE` is `"arbitrary"` with file paths:
 
 When `CONTENT_TYPE` is `"arbitrary"` with a text block, embed the text directly in the prompt.
 
-#### 4c. Codex MCP Invocation
+Example of a correct prompt (under 500 chars):
+> `## Original User Request\nVerify the refactored auth module.\n\n## Review Target\nRun \`git diff --staged\` to see the changes to review.`
+
+#### 4b. Codex MCP Invocation
 
 Call the `mcp__codex__codex` tool with the following parameters:
-- `prompt`: The task-specific prompt (user request + review target reference — NOT content)
+- `prompt`: The task-specific prompt (under 500 chars — review target reference only, NOT content)
 - `developer-instructions`: The agent persona from Step 4a
-- `base-instructions`: The static instructions and output schema from Step 4b
+- `base-instructions`: The static instructions and output schema from Step 4a
 - `cwd`: Current working directory (absolute path from `$PWD`)
 - `sandbox`: `"read-only"`
 - `approval-policy`: `"never"`

@@ -5,7 +5,6 @@ description: >-
 argument-hint: "<description of analysis target>"
 allowed-tools:
   - Bash
-  - Read
   - Glob
   - Grep
   - WebFetch
@@ -101,15 +100,19 @@ Remember the `SESSION_ID` value for use in all subsequent file paths.
 
 ### Step 4: Initial Analysis (Iteration 1)
 
-#### 4a. Read Agent Persona
+#### 4a. Compose Prompt Parameters
 
-Use the Read tool to read `${CLAUDE_PLUGIN_ROOT}/agents/codex-analyze-agents.md` and capture the `AGENT_PERSONA` content.
+**CRITICAL**: The `prompt` parameter MUST contain only the user request and file paths.
+The entire `prompt` value MUST be under 500 characters. If it exceeds 500 characters, you are doing it wrong.
 
-#### 4b. Compose Prompt Parameters
+**`developer-instructions`**: Use the following agent persona verbatim:
 
-**Key principle**: Do NOT embed file content in the prompt. Pass file paths and let Codex read them directly.
-
-**`developer-instructions`**: Set to the `{AGENT_PERSONA}` content read in Step 4a.
+```text
+Systematic, evidence-based analyst. Find patterns, root causes, actionable insights.
+Principles: 1) Evidence first — concrete file/line/function refs. 2) Quantify with metrics. 3) Actionable recs with effort/impact. 4) Context-aware standards. 5) Prioritize severity × impact. 6) Patterns over isolated nits. 7) Root-cause over symptoms.
+Framework: code quality, complexity, dependencies, reliability, security, performance, logs/telemetry, architecture.
+Mindset: turn evidence into prioritized decisions a team can execute immediately.
+```
 
 **`base-instructions`**: Use the following static template (substitute `{ITERATION}` only):
 
@@ -121,7 +124,7 @@ CONCISENESS: summary ≤100 chars. Max 5 findings (no category/description). tit
 JSON only, no fences: {"status":"complete|partial","summary":"...","findings":[{"severity":"critical|major|minor|info","title":"...","evidence":"...","recommendation":"..."}],"metrics":{},"iteration":{ITERATION}}
 ```
 
-**`prompt`**: Compose from `{USER_REQUEST}` and `{TARGET_PATHS}` only (NOT file content):
+**`prompt`**: Compose from `{USER_REQUEST}` and `{TARGET_PATHS}` only.
 
 ```text
 {USER_REQUEST}
@@ -132,12 +135,15 @@ JSON only, no fences: {"status":"complete|partial","summary":"...","findings":[{
 
 If the input is a text block (Mode A text block only), embed the text directly in the prompt instead of file paths.
 
-#### 4c. Codex MCP Invocation
+Example of a correct prompt (under 500 chars):
+> `Analyze modules/claude/files/CLAUDE.md for rule conflicts and structural completeness.\n\n## Target Files\nmodules/claude/files/CLAUDE.md`
+
+#### 4b. Codex MCP Invocation
 
 Call the `mcp__codex__codex` tool with the following parameters:
-- `prompt`: The task-specific prompt (user request + file paths only — NOT file content)
+- `prompt`: The task-specific prompt (under 500 chars — file paths only, NOT file content)
 - `developer-instructions`: The agent persona from Step 4a
-- `base-instructions`: The static instructions and output schema from Step 4b
+- `base-instructions`: The static instructions and output schema from Step 4a
 - `cwd`: Current working directory (absolute path from `$PWD`)
 - `sandbox`: `"read-only"`
 - `approval-policy`: `"never"`

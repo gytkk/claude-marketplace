@@ -90,15 +90,22 @@ Remember the `SESSION_ID` value for use in all subsequent file paths.
 
 ### Step 4: Initial Execution (Iteration 1)
 
-#### 4a. Read Agent Persona
+#### 4a. Compose Prompt Parameters
 
-Use the Read tool to read `${CLAUDE_PLUGIN_ROOT}/agents/codex-hephaestus-agents.md` and capture the `AGENT_PERSONA` content.
+**CRITICAL**: The `prompt` parameter MUST contain only the task description and file paths.
+The entire `prompt` value MUST be under 500 characters. If it exceeds 500 characters, you are doing it wrong.
+The Read tool is ONLY allowed in Step 7 (Verify Changes). Do NOT use Read in Steps 2–4.
 
-#### 4b. Compose Prompt Parameters
+**`developer-instructions`**: Use the following agent persona verbatim:
 
-**Key principle**: Do NOT embed file content in the prompt. Pass file paths and let Codex read them directly.
-
-**`developer-instructions`**: Set to the `{AGENT_PERSONA}` content read in Step 4a.
+```text
+Hephaestus — autonomous deep worker operating as Senior Staff Engineer. Complete task fully: no guessing, no early stops, verification required.
+Principles: 1) Execute immediately, don't ask permission. 2) Deliver complete outcomes; report blockers precisely. 3) Explore before editing — read files, usages, conventions first. 4) Verify every change with concrete checks. 5) Evidence-based decisions tied to actual code.
+Loop: EXPLORE (read files/usages/patterns) → PLAN (exact file-by-file changes) → EXECUTE (surgical edits, existing style) → VERIFY (re-read modified files, cross-file consistency).
+Hard constraints: never suppress types, never speculate about unread code, never leave broken state, never delete tests, never add commented-out code or TODOs.
+Recovery: attempt 1 fails → different approach; attempt 2 → decompose smaller; attempt 3 → revert and report.
+Quality: match existing style, focused diffs, no unrelated refactors, syntactically valid files.
+```
 
 **`base-instructions`**: Use the following static template (substitute `{ITERATION}` only):
 
@@ -112,7 +119,7 @@ CONCISENESS: summary ≤100 chars. No approach/verification/next_steps. files_mo
 JSON only, no fences: {"status":"complete|partial|failed","summary":"...","files_modified":[{"path":"...","action":"create|modify|delete"}],"issues":[{"severity":"critical|major|minor","description":"≤80 chars"}],"iteration":{ITERATION}}
 ```
 
-**`prompt`**: Compose from `{USER_REQUEST}` and `{TARGET_PATHS}` only (NOT file content):
+**`prompt`**: Compose from `{USER_REQUEST}` and `{TARGET_PATHS}` only:
 
 ```text
 ## Task
@@ -122,12 +129,15 @@ JSON only, no fences: {"status":"complete|partial|failed","summary":"...","files
 {TARGET_PATHS}
 ```
 
-#### 4c. Codex MCP Invocation
+Example of a correct prompt (under 500 chars):
+> `## Task\nRefactor auth module to use JWT tokens.\n\n## Key Files\nsrc/auth/login.ts\nsrc/auth/middleware.ts\nsrc/types/auth.d.ts`
+
+#### 4b. Codex MCP Invocation
 
 Call the `mcp__codex__codex` tool with the following parameters:
-- `prompt`: The task-specific prompt (task request + file paths only — NOT file content)
+- `prompt`: The task-specific prompt (under 500 chars — file paths only, NOT file content)
 - `developer-instructions`: The agent persona from Step 4a
-- `base-instructions`: The static instructions and output schema from Step 4b
+- `base-instructions`: The static instructions and output schema from Step 4a
 - `cwd`: Current working directory (absolute path from `$PWD`)
 - `sandbox`: `"workspace-write"`
 - `approval-policy`: `"never"`
