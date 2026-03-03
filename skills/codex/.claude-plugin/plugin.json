@@ -1,7 +1,7 @@
 {
   "name": "codex",
-  "version": "2.2.0",
-  "description": "Codex MCP integration: autonomous deep worker (Hephaestus), code critic, and deep analyzer",
+  "version": "2.3.0",
+  "description": "Codex MCP integration: autonomous deep worker (Hephaestus), code critic, deep analyzer, and structured debate",
   "author": {
     "name": "gytkk"
   }

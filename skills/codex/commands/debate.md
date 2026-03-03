@@ -30,7 +30,7 @@ output; the final round delivers an actionable verdict.
 ## Invocation
 
 ```text
-/codex-debate:debate "topic" [--rounds 3]
+/codex:debate "topic" [--rounds 3]
 ```
 
 ## User Visibility Rules

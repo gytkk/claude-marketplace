@@ -9,25 +9,15 @@
   "plugins": [
     {
       "name": "codex",
-      "description": "Codex MCP integration: autonomous deep worker (Hephaestus), code critic, and deep analyzer",
-      "version": "2.2.0",
+      "description": "Codex MCP integration: autonomous deep worker (Hephaestus), code critic, deep analyzer, and structured debate",
+      "version": "2.3.0",
       "author": {
         "name": "gytkk"
       },
       "source": "./skills/codex",
       "category": "productivity"
     },
-    {
-      "name": "codex-debate",
-      "description": "Structured multi-round debate between Claude (builder) and Codex (skeptical reviewer) producing actionable decisions",
-      "version": "1.0.0",
-      "author": {
-        "name": "gytkk"
-      },
-      "source": "./skills/codex-debate",
-      "category": "productivity"
-    },
-    {
+{
       "name": "metals-lsp",
       "description": "Scala language server (Metals) for code intelligence, refactoring, and analysis",
       "version": "1.0.0",
