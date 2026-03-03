@@ -1,0 +1,8 @@
+{
+  "name": "codex-debate",
+  "version": "1.0.0",
+  "description": "Structured multi-round debate between Claude (builder) and Codex (skeptical reviewer) producing actionable decisions with rationale, risks, and next steps",
+  "author": {
+    "name": "gytkk"
+  }
+}

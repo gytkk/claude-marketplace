@@ -1,0 +1,86 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Codex Debate Final Verdict",
+  "description": "Structured output from the final Codex verdict round in a debate session",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "outcome": {
+      "type": "string",
+      "enum": ["approve", "reject", "conditional", "recommend", "inconclusive"],
+      "description": "Verdict category: approve/reject/conditional for proposals; recommend for research/analysis conclusions; inconclusive when evidence is insufficient"
+    },
+    "conclusion": {
+      "type": "string",
+      "maxLength": 200,
+      "description": "One-sentence takeaway summarizing the verdict"
+    },
+    "rationale": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "maxLength": 120
+      },
+      "minItems": 3,
+      "maxItems": 7,
+      "description": "Key reasons supporting the conclusion"
+    },
+    "risks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "risk": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "mitigation": {
+            "type": "string",
+            "maxLength": 100
+          },
+          "severity": {
+            "type": "string",
+            "enum": ["high", "medium", "low"]
+          }
+        },
+        "required": ["risk", "mitigation", "severity"]
+      },
+      "maxItems": 5,
+      "description": "Identified risks with mitigations"
+    },
+    "actions": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "maxLength": 120
+      },
+      "maxItems": 10,
+      "description": "Next action items as a checklist"
+    },
+    "caveats": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "maxLength": 120
+      },
+      "description": "Conditions, prerequisites, or required changes"
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 1,
+      "maximum": 10,
+      "description": "How confident the reviewer is in this verdict"
+    },
+    "unresolved_questions": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "maxLength": 120
+      },
+      "maxItems": 5,
+      "description": "Questions that remain open after the debate"
+    }
+  },
+  "required": ["outcome", "conclusion", "rationale", "risks", "actions", "confidence"]
+}
