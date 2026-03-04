@@ -147,6 +147,7 @@ Call the `mcp__codex__codex` tool with the following parameters:
 - `cwd`: Current working directory (absolute path from `$PWD`)
 - `sandbox`: `"read-only"`
 - `approval-policy`: `"never"`
+- `config`: `{"model_reasoning_effort": "xhigh"}`
 
 Save the `threadId` from the response and parse the JSON result from the response text.
 

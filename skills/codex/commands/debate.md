@@ -293,6 +293,7 @@ Claude revised their proposal (Round {N-1}). Read updated transcript at `$HOME/.
 - `cwd`: Current working directory (absolute path)
 - `sandbox`: `"read-only"`
 - `approval-policy`: `"never"`
+- `config`: `{"model_reasoning_effort": "xhigh"}`
 
 **Save the `threadId`** from the response for subsequent rounds.
 
