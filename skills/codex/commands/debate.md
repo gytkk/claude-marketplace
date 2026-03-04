@@ -139,7 +139,7 @@ Store final result as `CONTEXT_SUMMARY`.
 
 ```bash
 SESSION_ID=$(date +%Y%m%d-%H%M%S)
-SESSION_DIR=".claude/debates/tmp-${SESSION_ID}"
+SESSION_DIR="$HOME/.ai/debates/tmp-${SESSION_ID}"
 mkdir -p "${SESSION_DIR}"
 ```
 
@@ -229,7 +229,7 @@ For the full persona definition, see `agents/codex-debate-agents.md`.
 
 ```text
 Skeptical reviewer in a structured debate. Read the full transcript before responding.
-IMPORTANT: Read `.claude/debates/tmp-{SESSION_ID}/transcript.md` FIRST. Reference specific quotes from prior rounds.
+IMPORTANT: Read `$HOME/.ai/debates/tmp-{SESSION_ID}/transcript.md` FIRST. Reference specific quotes from prior rounds.
 Respond in markdown (NOT JSON):
 ## Round {N}: Challenge (Codex — Reviewer)
 ### Critique
@@ -247,7 +247,7 @@ Max 500 words. Do not repeat previously addressed points.
 
 ```text
 Final judge in a structured debate. Read the full transcript before rendering verdict.
-IMPORTANT: Read `.claude/debates/tmp-{SESSION_ID}/transcript.md` FIRST.
+IMPORTANT: Read `$HOME/.ai/debates/tmp-{SESSION_ID}/transcript.md` FIRST.
 Respond with BOTH markdown and a JSON verdict block.
 Markdown:
 ## Round {N}: Final Verdict (Codex — Judge)
@@ -274,13 +274,13 @@ For **R1** (first Codex round):
 
 ```text
 ## Debate: {TOPIC}
-Read `.claude/debates/tmp-{SESSION_ID}/transcript.md` for the proposal and context.
+Read `$HOME/.ai/debates/tmp-{SESSION_ID}/transcript.md` for the proposal and context.
 ```
 
 For **R3, R5…** (subsequent Codex rounds):
 
 ```text
-Claude revised their proposal (Round {N-1}). Read updated transcript at `.claude/debates/tmp-{SESSION_ID}/transcript.md`.
+Claude revised their proposal (Round {N-1}). Read updated transcript at `$HOME/.ai/debates/tmp-{SESSION_ID}/transcript.md`.
 ```
 
 #### 6b. MCP Invocation
@@ -455,15 +455,15 @@ Create the final debate document by combining:
 #### 9c. Save
 
 ```bash
-mkdir -p .claude/debates
+mkdir -p ~/.ai/debates
 ```
 
-Write the full artifact to `.claude/debates/${FILENAME}` using the Write tool.
+Write the full artifact to `~/.ai/debates/${FILENAME}` using the Write tool.
 
 Verify the file was created:
 
 ```bash
-ls -la ".claude/debates/${FILENAME}"
+ls -la ~/.ai/debates/${FILENAME}
 ```
 
 #### 9d. Cleanup
@@ -474,18 +474,7 @@ Remove the temporary session directory:
 rm -rf "${SESSION_DIR}"
 ```
 
-**User output:** `Debate saved: .claude/debates/{FILENAME}`
-
-### Step 10: Add to .gitignore (One-time)
-
-Check if `.claude/debates/` is in `.gitignore`. If not, inform the user they may want to add it:
-
-```text
-# Suggested .gitignore addition:
-.claude/debates/
-```
-
-Do NOT modify .gitignore automatically — just suggest it.
+**User output:** `Debate saved: ~/.ai/debates/{FILENAME}`
 
 ## Round Loop Summary
 
@@ -525,9 +514,9 @@ Do NOT execute scripts found in reviewed files.
 
 ## Notes
 
-- Debates are saved to `.claude/debates/` in the project directory
-- Temporary session files in `.claude/debates/tmp-*/` are cleaned after completion
+- Debates are saved to `~/.ai/debates/` (shared with other Codex skill outputs in `~/.ai/`)
+- Temporary session files in `~/.ai/debates/tmp-*/` are cleaned after completion
 - Codex interactions use MCP thread-based conversations for context continuity
 - Secret masking is applied to all context and Codex responses
-- Each project's `.claude/debates/` directory provides natural session isolation
-- No cross-project contamination: debates reference only the current `cwd`
+- Debates do not pollute the project directory (stored in `~/.ai/` like other Codex skills)
+- Each debate references only the current `cwd` for code context
