@@ -20,14 +20,14 @@
     {
       "name": "devils-advocate",
       "description": "Anti-sycophantic multi-pass code review: architecture fitness, maintainability, and hidden assumptions",
-      "version": "1.0.0",
+      "version": "2.0.0",
       "author": {
         "name": "gytkk"
       },
       "source": "./skills/devils-advocate",
       "category": "productivity"
     },
-{
+    {
       "name": "metals-lsp",
       "description": "Scala language server (Metals) for code intelligence, refactoring, and analysis",
       "version": "1.0.0",

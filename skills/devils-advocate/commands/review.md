@@ -2,7 +2,7 @@
 description: >-
   Anti-sycophantic multi-pass code review. Three sequential passes focused on
   architecture fitness, future maintainability, and hidden assumptions. Enforces
-  minimum findings per pass — cannot say "looks good".
+  skeptical re-checks without fabricating findings.
 argument-hint: "[files or description] [--base <branch>] [--quick]"
 allowed-tools:
   - Bash
@@ -16,11 +16,19 @@ allowed-tools:
 
 Multi-pass structured code review with enforced anti-sycophancy.
 Uses Claude-native tools only (no external MCP dependencies).
+Treat `references/rubrics.md` as the canonical review criteria and
+`references/review-schema.json` as the saved result contract.
 
 ## Invocation
 
 ```text
 /devils-advocate:review [files or description] [--base main] [--quick]
+```
+
+## Arguments
+
+```text
+$ARGUMENTS
 ```
 
 ## Execution Steps
@@ -42,12 +50,15 @@ to the user and stop.
 
 ### Step 1: Determine Review Target and Mode
 
-Parse the user's argument for flags and review target.
+Parse the user's argument for flags and review target. Claude Code renders the
+invocation arguments above as `$ARGUMENTS`; use that text as the source
+for flags and explicit targets.
 
 **Flags:**
 
-- `--base <branch>`: Compare `HEAD` against a base branch (e.g., `git diff main...HEAD`)
-- `--quick`: Run only Pass 1 (Architecture) with minimum 1 finding
+- `--base <branch>`: Compare `HEAD` against a base branch
+  (e.g., `git diff main...HEAD`)
+- `--quick`: Run only Pass 1 (Architecture) with target 1 finding
 
 **Determine review target** (do NOT read file content yet — that happens in each pass):
 
@@ -63,17 +74,19 @@ If the user provides file paths or a description:
 If no explicit target, detect the diff to review. Run stat commands only:
 
 ```bash
-git diff --staged --stat 2>/dev/null
-git diff --stat 2>/dev/null
+git diff HEAD --stat 2>/dev/null
 git diff HEAD~1 HEAD --stat 2>/dev/null
 ```
 
 Use the first non-empty result. Record:
 
-- `DIFF_COMMAND`: the command to get the full diff (e.g., `git diff --staged`)
+- `DIFF_COMMAND`: the command to get the full diff
+  (e.g., `git diff HEAD`)
 - `DIFF_STAT`: the stat output (file list and line counts)
 
 If `--base` is provided, use `git diff <base>...HEAD --stat` instead.
+Use staged-only or unstaged-only diffs only when the user explicitly scopes the
+review that way.
 
 #### Mode C: Conversation Context Fallback
 
@@ -159,8 +172,10 @@ waste time with vague or unfounded findings.
 
 **Check ALL of the following conditions:**
 
-1. **Review target exists**: `DIFF_COMMAND` or `TARGET_PATHS` is set and non-empty
-2. **Files are readable**: At least one target file or diff output is accessible
+1. **Review target exists**: `DIFF_COMMAND`, `TARGET_PATHS`, or bounded
+   `TARGET_DESC` is set and non-empty
+2. **Target is accessible**: At least one target file, diff output, or bounded
+   target description is accessible
 3. **Standards baseline exists**: `DISCOVERED_STANDARDS` has at least one entry
    (from CLAUDE.md, ADRs, or dominant patterns)
 4. **Scope is bounded**: The review target is specific enough to evaluate
@@ -192,11 +207,11 @@ Set `REVIEW_MODE` to `"quick"` if `--quick` was provided, otherwise `"full"`.
 
 Define the pass configuration:
 
-| Pass | Name              | Focus                                                  | Min Findings | Quick |
-| ---- | ----------------- | ------------------------------------------------------ | ------------ | ----- |
-| 1    | architecture      | Pattern consistency, dependency direction, abstraction  | 2 (1 if quick) | Yes |
-| 2    | maintainability   | Tech debt, coupling/cohesion, extensibility, assumptions | 2           | No  |
-| 3    | edge_cases        | Implicit contracts, unhandled errors, concurrency       | 1 (critical) | No  |
+| Pass | Name            | Focus                                                   | Target         | Quick |
+| ---- | --------------- | ------------------------------------------------------- | -------------- | ----- |
+| 1    | architecture    | Pattern consistency, dependency direction, abstraction  | 2 findings     | Yes   |
+| 2    | maintainability | Tech debt, coupling/cohesion, extensibility, assumptions | 2 findings     | No    |
+| 3    | edge_cases      | Implicit contracts, unhandled errors, concurrency       | 1 if defensible | No    |
 
 Execute passes **sequentially**. Each pass receives the findings from all
 prior passes to avoid duplicates and build on prior analysis.
@@ -208,7 +223,8 @@ prior passes to avoid duplicates and build on prior analysis.
 Build the Agent prompt with these components:
 
 1. **Review target reference** — the diff command or file paths (NOT content).
-   The Agent will use `Read`, `Bash`, `Grep`, and `Glob` to access content.
+   Include `TARGET_DESC` when the user supplied a bounded description. The
+   Agent will use `Read`, `Bash`, `Grep`, and `Glob` to access content.
 
 2. **Discovered standards** — include `DISCOVERED_STANDARDS` from Step 3 so the
    Agent knows the project's conventions, dominant patterns, and architectural
@@ -223,7 +239,8 @@ Anti-patterns: god objects, shotgun surgery, feature envy, primitive obsession, 
 Mindset: every line is a liability, every abstraction has a cost, make the cost visible.
 ```
 
-4. **Pass-specific instructions** — from the rubrics below:
+4. **Pass-specific instructions** — use the criteria in
+   `references/rubrics.md`; the summaries below mirror that canonical file.
 
 **Pass 1 (architecture):**
 
@@ -247,7 +264,8 @@ Evaluate:
 - Are module boundaries respected?
 - Are public API contracts preserved?
 
-MINIMUM FINDINGS: {MIN_FINDINGS}. If you find fewer, you are being too lenient — re-examine the code.
+TARGET: Identify at least {MIN_FINDINGS} defensible findings. If you find fewer,
+re-examine once. Do not fabricate findings.
 ```
 
 **Pass 2 (maintainability):**
@@ -266,7 +284,8 @@ Evaluate:
 - Are there hardcoded values that should be parameterized?
 - Do error messages help debugging?
 
-MINIMUM FINDINGS: 2. If you find fewer, you are being too lenient — re-examine the code.
+TARGET: Identify at least 2 defensible findings. If you find fewer, re-examine
+once. Do not fabricate findings.
 ```
 
 **Pass 3 (edge_cases):**
@@ -286,21 +305,24 @@ Evaluate:
 - Resource leaks: files, connections, locks, transactions?
 - Boundary conditions: off-by-one, empty collections, null, max-size?
 
-MINIMUM FINDINGS: 1 (must include at least 1 with severity "critical").
+TARGET: Identify at least 1 defensible edge-case finding. Use severity
+"critical" only for a high-confidence production bug, data loss, security issue,
+or system failure. If no edge-case finding is defensible after re-examination,
+return an empty findings array and explain the remaining unverified areas.
 ```
 
 5. **Output format instructions:**
 
 ```text
 CONCISENESS: All output MUST be strict JSON (no fences, no commentary).
-- description: ≤80 chars
-- suggestion: ≤80 chars
-- what_could_go_wrong: ≤200 chars
-- unverified items: ≤80 chars each
+- finding text fields: ≤240 chars each
+- impact: ≤200 chars
+- what_could_go_wrong: ≤240 chars
+- unverified items: ≤160 chars each
 - Max 5 findings per pass.
 
 Output schema:
-{"name":"architecture|maintainability|edge_cases","findings":[{"severity":"critical|major|minor|info","file":"path:line","description":"...","suggestion":"..."}],"what_could_go_wrong":"...","unverified":["what you did NOT check — at least 1 item"],"confidence":1-10}
+{"name":"architecture|maintainability|edge_cases","findings":[{"severity":"critical|major|minor|info","file":"path:line","what_can_go_wrong":"...","why_vulnerable":"...","impact":"...","recommendation":"..."}],"what_could_go_wrong":"...","unverified":["what you did NOT check - at least 1 item"],"confidence":1-10,"minimum_met":true|false}
 
 IMPORTANT: The "unverified" array MUST contain at least 1 item. List what you
 could not verify in this pass (e.g., "runtime performance under load",
@@ -315,7 +337,6 @@ Spawn an Agent subagent with:
 - `prompt`: The composed prompt from 3a (review target + persona + pass instructions + output format)
 - `subagent_type`: `general-purpose`
 - `description`: `"DA review pass {N}: {pass_name}"`
-- `model`: `opus`
 
 The Agent will:
 
@@ -329,31 +350,37 @@ The Agent will:
 Parse the JSON from the Agent's response. Validate:
 
 - JSON is well-formed
-- `findings` array exists and has items
-- Each finding has all required fields (`severity`, `file`, `description`, `suggestion`)
+- `findings` array exists; it may be empty only when the pass explicitly states
+  no material findings after re-examination
+- Each finding has all required fields (`severity`, `file`,
+  `what_can_go_wrong`, `why_vulnerable`, `impact`, `recommendation`)
 - `what_could_go_wrong` is present
 - `unverified` array exists and has at least 1 item
-- Minimum findings threshold is met:
+- `minimum_met` is present
+- Completion target is met:
   - Pass 1: ≥ `{MIN_FINDINGS}` findings
   - Pass 2: ≥ 2 findings
-  - Pass 3: ≥ 1 finding with `severity == "critical"`
+  - Pass 3: ≥ 1 edge-case finding, or no defensible edge-case finding after
+    re-examination with `minimum_met: true`
 
-**5d. Enforce minimum findings (retry once)**
+**5d. Enforce pass target (retry once)**
 
-If the minimum is not met, re-invoke the Agent ONE time with this amended prompt:
+If the target is not met, re-invoke the Agent ONE time with this amended prompt:
 
 ```text
-You returned {ACTUAL_COUNT} findings but the minimum is {REQUIRED_COUNT}.
+You returned {ACTUAL_COUNT} findings but the target is {REQUIRED_COUNT}.
 Your previous findings: {PREVIOUS_FINDINGS}
 Re-examine the code more critically. Focus on areas you may have overlooked:
 - Look deeper into the module's interaction with its dependencies
 - Consider what assumptions are baked into the current implementation
 - Think about what breaks if the surrounding code changes
-Return the COMPLETE pass result (not just new findings).
+Return the COMPLETE pass result (not just new findings). Do not fabricate
+findings; if no finding is defensible, set minimum_met according to the pass
+completion rule and explain the remaining unverified areas.
 ```
 
-If the retry still does not meet the minimum, accept the result as-is and note the
-shortfall in the final report.
+If the retry still does not meet the target, accept the result as-is and note
+the shortfall in the final report.
 
 **5e. Collect the pass result**
 
@@ -371,7 +398,8 @@ After all passes complete, build the final result:
 
 - Collect all per-pass results into the `passes` array
 - Extract `top_concerns`: up to 5 items, prioritized by severity (critical > major > minor > info), each ≤120 chars
-- Build `improvements`: deduplicated suggestions from all findings, ordered by impact (high > medium > low), each ≤80 chars
+- Build `improvements`: deduplicated recommendations from all findings, ordered
+  by impact (high > medium > low), each ≤200 chars
 
 **6b. Compute verdict**
 
@@ -380,10 +408,12 @@ Default verdict is `needs_work`. Override only if:
 - **`approve`**: ALL of these must be true:
   - All findings have severity ≤ `minor`
   - Average confidence across passes ≥ 8
-  - No pass failed its minimum findings threshold (indicating thoroughness)
+  - Every pass has `minimum_met: true`
 - **`reject`**: ANY of these is true:
   - Any finding with `severity == "critical"` and the pass confidence ≥ 7
   - Multiple `major` findings indicating a fundamental design issue
+- **`needs_work`**: Any major finding, confidence < 8, incomplete context, or
+  any pass with `minimum_met: false`
 
 **6c. Compute confidence**
 
@@ -392,7 +422,7 @@ Reduce by 1 for each `critical` finding (minimum 1).
 
 **6d. Generate summary**
 
-One sentence, ≤100 characters, stating the verdict reason.
+One sentence, ≤160 characters, stating the verdict reason.
 Example: `"3 arch violations and 1 critical race condition; needs redesign"`
 
 ### Step 7: Save and Report
@@ -419,13 +449,13 @@ Format the report with these sections (omit empty sections):
 **Mode**: {mode} | **Passes**: {pass_count}
 
 ### Top Concerns
-1. [severity] file:line — description
+1. [severity] file:line — what can go wrong
 2. ...
 
 ### Pass Results
 
 #### Pass 1: Architecture & Design
-- [severity] `file:line` — description → suggestion
+- [severity] `file:line` — what can go wrong → recommendation
 - ...
 > What could go wrong: {what_could_go_wrong}
 
@@ -436,8 +466,8 @@ Format the report with these sections (omit empty sections):
 (same format)
 
 ### Suggested Improvements (by impact)
-1. [high] description
-2. [medium] description
+1. [high] recommendation
+2. [medium] recommendation
 3. ...
 
 ### Not Verified
@@ -463,14 +493,16 @@ Based on verdict:
 
 | Variable             | Default | Description                                    |
 | -------------------- | ------- | ---------------------------------------------- |
-| `DA_QUICK_MIN`       | 1       | Minimum findings for quick mode (Pass 1 only)  |
-| `DA_FULL_MIN_P1`     | 2       | Minimum findings for Pass 1 in full mode       |
-| `DA_FULL_MIN_P2`     | 2       | Minimum findings for Pass 2                    |
-| `DA_FULL_MIN_P3`     | 1       | Minimum findings for Pass 3 (must be critical) |
+| `DA_QUICK_MIN`       | 1       | Target findings for quick mode (Pass 1 only)   |
+| `DA_FULL_MIN_P1`     | 2       | Target findings for Pass 1 in full mode        |
+| `DA_FULL_MIN_P2`     | 2       | Target findings for Pass 2                     |
+| `DA_FULL_MIN_P3`     | 1       | Target edge-case findings for Pass 3           |
 
 ## Notes
 
-- All analysis uses Claude-native tools (`Read`, `Grep`, `Glob`, `Bash`, `Agent`). No external MCP dependencies.
+- All analysis uses Claude-native tools (`Read`, `Grep`, `Glob`, `Bash`,
+  `Agent`). No external MCP dependencies.
 - Passes run sequentially so each builds on prior findings, avoiding duplicates.
 - Results are saved to `~/.ai/review-{SESSION_ID}-result.json`.
-- The anti-sycophancy mechanisms (minimum findings, banned phrases, default-deny verdict) are intentionally aggressive. If a review passes all three passes with an `approve` verdict, the code has genuinely earned it.
+- The anti-sycophancy mechanisms are intentionally aggressive, but findings must
+  remain defensible and evidence-based.

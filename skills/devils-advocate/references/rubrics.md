@@ -29,7 +29,8 @@ textbook best practices.
 | Separation of concerns | Each module/function has one clear responsibility                        |
 | Standards compliance   | Matches discovered conventions, ADR decisions, and dominant patterns      |
 
-Minimum findings: 2. If you find fewer, you are being too lenient.
+Target: identify at least 2 defensible findings. Re-examine once if fewer are
+found; do not fabricate findings.
 
 ## Pass 2: Future Maintainability & Tech Debt
 
@@ -43,7 +44,8 @@ Minimum findings: 2. If you find fewer, you are being too lenient.
 | Magic values         | Hardcoded strings, numbers, or config that should be parameterized       |
 | Error messages       | Do error messages help debugging, or are they generic/missing?           |
 
-Minimum findings: 2. If you find fewer, you are being too lenient.
+Target: identify at least 2 defensible findings. Re-examine once if fewer are
+found; do not fabricate findings.
 
 ## Pass 3: Hidden Assumptions & Edge Cases
 
@@ -57,14 +59,19 @@ Minimum findings: 2. If you find fewer, you are being too lenient.
 | Resource leaks       | Are files, connections, locks, and transactions properly cleaned up?      |
 | Boundary conditions  | Off-by-one, empty collections, null/undefined, max-size inputs           |
 
-Minimum findings: 1 (must include at least 1 critical severity).
+Completion target: identify at least 1 edge-case finding when defensible.
+Re-examine once if none is found. If no edge-case finding is defensible, report
+that the pass did not produce material findings and list the concrete
+edge-case areas that remain unverified rather than inventing one.
 
 ## Verdict Criteria
 
-| Verdict    | When to Use                                                                            |
-| ---------- | -------------------------------------------------------------------------------------- |
-| approve    | All passes clear with findings severity <= minor AND confidence >= 8 across all passes |
-| needs_work | Default. Any major finding or confidence < 8                                           |
-| reject     | Any critical finding with high confidence, or fundamental design flaw                  |
+| Verdict    | When to Use                                                                          |
+| ---------- | ------------------------------------------------------------------------------------ |
+| approve    | All findings are minor/info, confidence >= 8, and all passes completed               |
+| needs_work | Default. Any major finding, confidence < 8, incomplete context, or missed pass target |
+| reject     | Any high-confidence critical finding, or a fundamental design flaw                   |
 
 Default verdict is `needs_work`. The reviewer must argue FOR approval, not against it.
+A completed pass may have no findings only when the report states the re-check
+and remaining unverified areas.
