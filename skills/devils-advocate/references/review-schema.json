@@ -1,0 +1,132 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Devils Advocate Review Result",
+  "description": "Multi-pass structured code review output",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "verdict": {
+      "type": "string",
+      "enum": ["approve", "needs_work", "reject"]
+    },
+    "confidence": {
+      "type": "number",
+      "minimum": 1,
+      "maximum": 10
+    },
+    "summary": {
+      "type": "string",
+      "maxLength": 100
+    },
+    "passes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 3,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "type": "string",
+            "enum": ["architecture", "maintainability", "edge_cases"]
+          },
+          "findings": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 5,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "severity": {
+                  "type": "string",
+                  "enum": ["critical", "major", "minor", "info"]
+                },
+                "file": {
+                  "type": "string",
+                  "description": "file:line format"
+                },
+                "description": {
+                  "type": "string",
+                  "maxLength": 80
+                },
+                "suggestion": {
+                  "type": "string",
+                  "maxLength": 80
+                }
+              },
+              "required": ["severity", "file", "description", "suggestion"]
+            }
+          },
+          "what_could_go_wrong": {
+            "type": "string",
+            "maxLength": 200
+          },
+          "unverified": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 3,
+            "items": {
+              "type": "string",
+              "maxLength": 80
+            },
+            "description": "What this pass did NOT verify — at least 1 item required"
+          },
+          "confidence": {
+            "type": "number",
+            "minimum": 1,
+            "maximum": 10
+          }
+        },
+        "required": ["name", "findings", "what_could_go_wrong", "unverified", "confidence"]
+      }
+    },
+    "top_concerns": {
+      "type": "array",
+      "maxItems": 5,
+      "items": {
+        "type": "string",
+        "maxLength": 120
+      }
+    },
+    "improvements": {
+      "type": "array",
+      "maxItems": 10,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "priority": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 10
+          },
+          "description": {
+            "type": "string",
+            "maxLength": 80
+          },
+          "impact": {
+            "type": "string",
+            "enum": ["high", "medium", "low"]
+          }
+        },
+        "required": ["priority", "description", "impact"]
+      }
+    },
+    "unverified": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 9,
+      "items": {
+        "type": "string",
+        "maxLength": 80
+      },
+      "description": "Aggregated from all passes — what was NOT verified in this review"
+    },
+    "mode": {
+      "type": "string",
+      "enum": ["full", "quick"]
+    }
+  },
+  "required": ["verdict", "confidence", "summary", "passes", "top_concerns", "improvements", "unverified", "mode"]
+}

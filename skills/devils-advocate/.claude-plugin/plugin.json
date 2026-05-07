@@ -1,0 +1,8 @@
+{
+  "name": "devils-advocate",
+  "version": "1.0.0",
+  "description": "Anti-sycophantic multi-pass code review: architecture fitness, maintainability, and hidden assumptions",
+  "author": {
+    "name": "gytkk"
+  }
+}
